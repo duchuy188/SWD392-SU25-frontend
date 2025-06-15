@@ -4,7 +4,7 @@ export interface User {
   fullName: string;
   phone: string;
   address: string;
-  role: 'student' | 'teacher' | 'counselor' | 'admin';
+  role: 'student' | 'admin';
   studentId?: string;
   profilePicture?: string;
   avatar?: string;
@@ -86,4 +86,15 @@ export interface SystemLog {
   message: string;
   timestamp: string;
   source: string;
+}
+
+export interface Profile {
+  id: string;
+  email: string;
+  fullName: string;
+  phone: string;
+  address: string;
+  role: string;
+  studentId: string;
+  profilePicture: string;
 }

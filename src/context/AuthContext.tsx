@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User } from '../types';
 import { userServices } from '../services/userServices';
+import { User } from '../types/index';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -10,6 +10,7 @@ interface AuthContextType {
   logout: () => void;
   hasRole: (roles: string[]) => boolean;
   googleLogin: (idToken: string) => Promise<boolean>;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -17,14 +18,40 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Check if user is already logged in (from localStorage)
   useEffect(() => {
-    const storedUser = localStorage.getItem('edubot_user');
-    if (storedUser) {
-      setCurrentUser(JSON.parse(storedUser));
-      setIsAuthenticated(true);
-    }
+    const initializeAuth = async () => {
+      const storedUser = localStorage.getItem('edubot_user');
+      const storedRefreshToken = localStorage.getItem('edubot_refreshToken');
+
+      if (storedUser && storedRefreshToken) {
+        try {
+          const user = JSON.parse(storedUser);
+          setCurrentUser(user);
+          // Attempt to refresh token on app load
+          const response = await userServices.refreshToken(storedRefreshToken);
+          const newAccessToken = response.data.accessToken;
+          const newRefreshToken = response.data.refreshToken;
+
+          localStorage.setItem('edubot_accessToken', newAccessToken);
+          localStorage.setItem('edubot_refreshToken', newRefreshToken);
+          setIsAuthenticated(true);
+        } catch (error) {
+          console.error('Failed to refresh token on startup, logging out:', error);
+          // If refresh fails, clear everything and log out
+          logout(); 
+        } finally {
+          setIsLoading(false);
+        }
+      } else {
+        logout();
+        setIsLoading(false);
+      }
+    };
+
+    initializeAuth();
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
@@ -127,7 +154,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       register, 
       logout,
       hasRole,
-      googleLogin
+      googleLogin,
+      isLoading
     }}>
       {children}
     </AuthContext.Provider>

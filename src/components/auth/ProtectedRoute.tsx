@@ -11,12 +11,16 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   allowedRoles = []
 }) => {
-  const { isAuthenticated, currentUser } = useAuth();
+  const { isAuthenticated, currentUser, isLoading } = useAuth();
   const location = useLocation();
+
+  if (isLoading) {
+    return <div>Loading authentication...</div>; // Or a loading spinner component
+  }
 
   if (!isAuthenticated) {
     // Redirect to login if not authenticated
-    return <Navigate to="/login\" state={{ from: location }} replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   // If allowedRoles is empty, allow any authenticated user

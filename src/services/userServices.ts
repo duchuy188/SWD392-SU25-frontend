@@ -34,8 +34,15 @@ export const userServices = {
   verifyOtp: (email: string, otp: string) => {
     return axiosInstance.post('/auth/verify-otp', { email, otp });
   },
+  
 
+  // Google login
   googleLogin: (idToken: string) => {
     return axiosInstance.post('/auth/google-login', { idToken });
+  },
+
+  refreshToken: (refreshToken: string) => {
+    return axiosInstance.post('/auth/refresh-token', { refreshToken });
   }
+  
 };
