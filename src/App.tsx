@@ -16,10 +16,6 @@ import ChatHistory from './pages/ChatHistory';
 import Unauthorized from './pages/Unauthorized';
 import NotFound from './pages/NotFound';
 
-// Admin pages
-import Dashboard from './pages/admin/Dashboard';
-import AdminUsers from './pages/admin/AdminUsers';
-
 function App() {
   return (
     <Router>
@@ -49,24 +45,6 @@ function App() {
             element={
               <ProtectedRoute>
                 <ChatHistory />
-              </ProtectedRoute>
-            } 
-          />
-          
-          {/* Admin routes */}
-          <Route 
-            path="/admin" 
-            element={
-              <ProtectedRoute allowedRoles={['admin']}>
-                <Dashboard />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/admin/users" 
-            element={
-              <ProtectedRoute allowedRoles={['admin']}>
-                <AdminUsers />
               </ProtectedRoute>
             } 
           />
