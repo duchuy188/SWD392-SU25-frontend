@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Lock, AlertCircle, School } from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
 import Container from '../components/ui/Container';
 import MainLayout from '../components/layout/MainLayout';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
+import { userServices } from '../services/userServices';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -14,7 +16,7 @@ const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const { login } = useAuth();
+  const { login, googleLogin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -54,17 +56,21 @@ const Login: React.FC = () => {
     }
   };
 
-  // Demo accounts info
-  const demoAccounts = [
-    { role: 'Student', email: 'student@example.com', password: '123456' },
-    { role: 'Teacher', email: 'teacher@example.com', password: '123456' },
-    { role: 'Counselor', email: 'counselor@example.com', password: '123456' },
-    { role: 'Admin', email: 'admin@example.com', password: '123456' }
-  ];
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    try {
+      const success = await googleLogin(credentialResponse.credential);
+      if (success) {
+        navigate(from, { replace: true });
+      } else {
+        setError('Đăng nhập bằng Google thất bại');
+      }
+    } catch (err) {
+      setError('Đã xảy ra lỗi khi đăng nhập bằng Google');
+    }
+  };
 
-  const loginWithDemo = (demoEmail: string, demoPassword: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPassword);
+  const handleGoogleError = () => {
+    setError('Đăng nhập bằng Google thất bại');
   };
 
   return (
@@ -119,7 +125,7 @@ const Login: React.FC = () => {
                   <span className="ml-2 text-sm text-gray-600">Ghi nhớ đăng nhập</span>
                 </label>
                 
-                <a href="#" className="text-sm font-medium text-primary-600 hover:text-primary-500">
+                <a href="/forgot-password" className="text-sm font-medium text-primary-600 hover:text-primary-500">
                   Quên mật khẩu?
                 </a>
               </div>
@@ -134,6 +140,31 @@ const Login: React.FC = () => {
                 Đăng nhập
               </Button>
             </form>
+
+            <div className="mt-6">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">Hoặc đăng nhập với</span>
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <div className="flex justify-center">
+                  <GoogleLogin
+                    onSuccess={handleGoogleSuccess}
+                    onError={handleGoogleError}
+                    useOneTap
+                    theme="filled_blue"
+                    text="signin_with"
+                    shape="rectangular"
+                    locale="vi"
+                  />
+                </div>
+              </div>
+            </div>
             
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
@@ -142,23 +173,6 @@ const Login: React.FC = () => {
                   Đăng ký ngay
                 </Link>
               </p>
-            </div>
-          </div>
-          
-          {/* Demo accounts section */}
-          <div className="bg-gray-50 p-6 border-t border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Tài khoản demo:</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {demoAccounts.map((account, index) => (
-                <div 
-                  key={index}
-                  className="bg-white p-3 rounded-md border border-gray-200 cursor-pointer hover:shadow-sm transition-shadow"
-                  onClick={() => loginWithDemo(account.email, account.password)}
-                >
-                  <div className="text-sm font-medium text-gray-900 mb-1">{account.role}</div>
-                  <div className="text-xs text-gray-500">{account.email} / {account.password}</div>
-                </div>
-              ))}
             </div>
           </div>
         </motion.div>

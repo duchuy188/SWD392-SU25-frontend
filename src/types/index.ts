@@ -1,8 +1,12 @@
 export interface User {
   id: string;
-  fullName: string;
   email: string;
+  fullName: string;
+  phone: string;
+  address: string;
   role: 'student' | 'teacher' | 'counselor' | 'admin';
+  studentId?: string;
+  profilePicture?: string;
   avatar?: string;
   grade?: number;
   school?: string;
