@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User } from '../types';
-import { mockUsers } from '../data/mockData';
+import { userServices } from '../services/userServices';
+import { User } from '../types/index';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -9,6 +9,8 @@ interface AuthContextType {
   register: (userData: Partial<User>, password: string) => Promise<boolean>;
   logout: () => void;
   hasRole: (roles: string[]) => boolean;
+  googleLogin: (idToken: string) => Promise<boolean>;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -16,26 +18,59 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Check if user is already logged in (from localStorage)
   useEffect(() => {
-    const storedUser = localStorage.getItem('edubot_user');
-    if (storedUser) {
-      setCurrentUser(JSON.parse(storedUser));
-      setIsAuthenticated(true);
-    }
+    const initializeAuth = async () => {
+      const storedUser = localStorage.getItem('edubot_user');
+      const storedRefreshToken = localStorage.getItem('edubot_refreshToken');
+
+      if (storedUser && storedRefreshToken) {
+        try {
+          const user = JSON.parse(storedUser);
+          setCurrentUser(user);
+          // Attempt to refresh token on app load
+          const response = await userServices.refreshToken(storedRefreshToken);
+          const newAccessToken = response.data.accessToken;
+          const newRefreshToken = response.data.refreshToken;
+
+          localStorage.setItem('edubot_accessToken', newAccessToken);
+          localStorage.setItem('edubot_refreshToken', newRefreshToken);
+          setIsAuthenticated(true);
+        } catch (error) {
+          console.error('Failed to refresh token on startup, logging out:', error);
+          // If refresh fails, clear everything and log out
+          logout(); 
+        } finally {
+          setIsLoading(false);
+        }
+      } else {
+        logout();
+        setIsLoading(false);
+      }
+    };
+
+    initializeAuth();
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    // Simulate API call
     try {
-      // In a real app, this would be an API call
-      const foundUser = mockUsers.find(user => user.email === email);
-      
-      if (foundUser && password.length >= 6) { // Simple mock password validation
-        setCurrentUser(foundUser);
+      const response = await userServices.login(email, password);
+      if (response.data) {
+        const { user, accessToken, refreshToken } = response.data;
+        
+        // Validate user data
+        if (!user || !user.id || !user.email) {
+          console.error('Invalid user data received');
+          return false;
+        }
+
+        setCurrentUser(user);
         setIsAuthenticated(true);
-        localStorage.setItem('edubot_user', JSON.stringify(foundUser));
+        localStorage.setItem('edubot_user', JSON.stringify(user));
+        localStorage.setItem('edubot_accessToken', accessToken);
+        localStorage.setItem('edubot_refreshToken', refreshToken);
         return true;
       }
       return false;
@@ -45,33 +80,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (userData: Partial<User>, password: string): Promise<boolean> => {
-    // Simulate API call
+  const googleLogin = async (idToken: string): Promise<boolean> => {
     try {
-      // Check if email already exists
-      const existingUser = mockUsers.find(user => user.email === userData.email);
-      if (existingUser) {
-        return false;
+      const response = await userServices.googleLogin(idToken);
+      if (response.data) {
+        const { user, accessToken, refreshToken } = response.data;
+        
+        // Validate user data
+        if (!user || !user.id || !user.email) {
+          console.error('Invalid user data received');
+          return false;
+        }
+
+        setCurrentUser(user);
+        setIsAuthenticated(true);
+        localStorage.setItem('edubot_user', JSON.stringify(user));
+        localStorage.setItem('edubot_accessToken', accessToken);
+        localStorage.setItem('edubot_refreshToken', refreshToken);
+        return true;
       }
+      return false;
+    } catch (error) {
+      console.error('Google login error:', error);
+      return false;
+    }
+  };
 
-      // In a real app, this would create a new user via API
-      const newUser: User = {
-        id: `user_${Date.now()}`,
-        fullName: userData.fullName || '',
-        email: userData.email || '',
-        role: 'student', // Default role
-        avatar: userData.avatar,
-        grade: userData.grade,
-        school: userData.school,
-        province: userData.province,
-        interests: userData.interests || [],
-        createdAt: new Date().toISOString(),
-      };
+  const register = async (userData: Partial<User>, password: string): Promise<boolean> => {
+    try {
+      const response = await userServices.register(userData.email || '', password, userData.fullName || '');
+      
+      if (response.data) {
+        const { user, accessToken, refreshToken } = response.data;
+        
+        // Validate user data
+        if (!user || !user.id || !user.email) {
+          console.error('Invalid user data received');
+          return false;
+        }
 
-      setCurrentUser(newUser);
-      setIsAuthenticated(true);
-      localStorage.setItem('edubot_user', JSON.stringify(newUser));
-      return true;
+        setCurrentUser(user);
+        setIsAuthenticated(true);
+        localStorage.setItem('edubot_user', JSON.stringify(user));
+        localStorage.setItem('edubot_accessToken', accessToken);
+        localStorage.setItem('edubot_refreshToken', refreshToken);
+        return true;
+      }
+      return false;
     } catch (error) {
       console.error('Registration error:', error);
       return false;
@@ -82,6 +137,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCurrentUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem('edubot_user');
+    localStorage.removeItem('edubot_accessToken');
+    localStorage.removeItem('edubot_refreshToken');
   };
 
   const hasRole = (roles: string[]) => {
@@ -96,7 +153,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       login, 
       register, 
       logout,
-      hasRole
+      hasRole,
+      googleLogin,
+      isLoading
     }}>
       {children}
     </AuthContext.Provider>

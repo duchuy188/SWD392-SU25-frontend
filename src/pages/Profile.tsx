@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Mail, School, MapPin, Heart, Calendar, AlertCircle, CheckCircle } from 'lucide-react';
+import { Mail, User, Phone, MapPin, AlertCircle, CheckCircle } from 'lucide-react';
 import Container from '../components/ui/Container';
 import MainLayout from '../components/layout/MainLayout';
 import Card, { CardBody, CardHeader } from '../components/ui/Card';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
+import { profileServices } from '../services/profleServices';
 
 const Profile: React.FC = () => {
   const { currentUser, isAuthenticated } = useAuth();
@@ -15,10 +16,9 @@ const Profile: React.FC = () => {
   const [formState, setFormState] = useState({
     fullName: '',
     email: '',
-    grade: '',
-    school: '',
-    province: '',
-    interests: ''
+    phone: '',
+    address: '',
+    profilePicture: ''
   });
   
   const [isEditing, setIsEditing] = useState(false);
@@ -37,10 +37,9 @@ const Profile: React.FC = () => {
       setFormState({
         fullName: currentUser.fullName || '',
         email: currentUser.email || '',
-        grade: currentUser.grade?.toString() || '',
-        school: currentUser.school || '',
-        province: currentUser.province || '',
-        interests: currentUser.interests?.join(', ') || ''
+        phone: currentUser.phone || '',
+        address: currentUser.address || '',
+        profilePicture: currentUser.profilePicture || ''
       });
     }
   }, [currentUser]);
@@ -50,23 +49,36 @@ const Profile: React.FC = () => {
     setFormState(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaveStatus('saving');
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      await profileServices.updateProfile(
+        formState.fullName,
+        formState.phone,
+        formState.address,
+        formState.profilePicture
+      );
       setSaveStatus('success');
       setIsEditing(false);
       
       setTimeout(() => {
         setSaveStatus('idle');
       }, 3000);
-    }, 1500);
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      if (error.response && error.response.data && error.response.data.message) {
+        setSaveStatus('error');
+        console.error('API Error Message:', error.response.data.message);
+      } else {
+        setSaveStatus('error');
+      }
+    }
   };
 
   if (!currentUser) {
-    return null; // or a loading indicator
+    return null;
   }
 
   return (
@@ -79,9 +91,9 @@ const Profile: React.FC = () => {
               <Card>
                 <CardBody className="flex flex-col items-center text-center">
                   <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-primary-100 mb-4">
-                    {currentUser.avatar ? (
+                    {currentUser.profilePicture ? (
                       <img
-                        src={currentUser.avatar}
+                        src={currentUser.profilePicture}
                         alt={currentUser.fullName}
                         className="w-full h-full object-cover"
                       />
@@ -98,8 +110,6 @@ const Profile: React.FC = () => {
                   
                   <p className="text-gray-600 mb-4">
                     {currentUser.role === 'student' && 'Học sinh'}
-                    {currentUser.role === 'teacher' && 'Giáo viên'}
-                    {currentUser.role === 'counselor' && 'Tư vấn viên'}
                     {currentUser.role === 'admin' && 'Quản trị viên'}
                   </p>
                   
@@ -109,17 +119,17 @@ const Profile: React.FC = () => {
                       <span>{currentUser.email}</span>
                     </div>
                     
-                    {currentUser.school && (
+                    {currentUser.phone && (
                       <div className="flex items-center text-gray-600">
-                        <School size={18} className="mr-2 text-gray-500" />
-                        <span>{currentUser.school}</span>
+                        <Phone size={18} className="mr-2 text-gray-500" />
+                        <span>{currentUser.phone}</span>
                       </div>
                     )}
                     
-                    {currentUser.province && (
+                    {currentUser.address && (
                       <div className="flex items-center text-gray-600">
                         <MapPin size={18} className="mr-2 text-gray-500" />
-                        <span>{currentUser.province}</span>
+                        <span>{currentUser.address}</span>
                       </div>
                     )}
                   </div>
@@ -131,49 +141,6 @@ const Profile: React.FC = () => {
                   >
                     {isEditing ? 'Hủy chỉnh sửa' : 'Chỉnh sửa thông tin'}
                   </Button>
-                </CardBody>
-              </Card>
-              
-              {/* Additional Information */}
-              <Card className="mt-6">
-                <CardHeader>
-                  <h3 className="text-lg font-semibold text-gray-900">Thông tin bổ sung</h3>
-                </CardHeader>
-                <CardBody>
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex items-center mb-2">
-                        <Calendar size={18} className="mr-2 text-primary-600" />
-                        <h4 className="font-medium text-gray-900">Ngày tham gia</h4>
-                      </div>
-                      <p className="text-gray-600 pl-7">
-                        {new Date(currentUser.createdAt).toLocaleDateString('vi-VN', {
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric'
-                        })}
-                      </p>
-                    </div>
-                    
-                    {currentUser.interests && currentUser.interests.length > 0 && (
-                      <div>
-                        <div className="flex items-center mb-2">
-                          <Heart size={18} className="mr-2 text-primary-600" />
-                          <h4 className="font-medium text-gray-900">Sở thích & Quan tâm</h4>
-                        </div>
-                        <div className="pl-7 flex flex-wrap gap-2">
-                          {currentUser.interests.map((interest, index) => (
-                            <span 
-                              key={index}
-                              className="inline-block bg-primary-50 text-primary-700 rounded-full px-3 py-1 text-sm"
-                            >
-                              {interest}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
                 </CardBody>
               </Card>
             </div>
@@ -209,6 +176,7 @@ const Profile: React.FC = () => {
                           name="fullName"
                           value={formState.fullName}
                           onChange={handleChange}
+                          leftIcon={<User size={18} />}
                           fullWidth
                         />
                         
@@ -218,6 +186,7 @@ const Profile: React.FC = () => {
                           type="email"
                           value={formState.email}
                           onChange={handleChange}
+                          leftIcon={<Mail size={18} />}
                           fullWidth
                           disabled
                           helperText="Email không thể thay đổi"
@@ -226,38 +195,21 @@ const Profile: React.FC = () => {
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <Input
-                          label="Lớp"
-                          name="grade"
-                          type="number"
-                          min="10"
-                          max="12"
-                          value={formState.grade}
+                          label="Số điện thoại"
+                          name="phone"
+                          value={formState.phone}
                           onChange={handleChange}
-                          fullWidth
-                        />
-                        
-                        <Input
-                          label="Trường"
-                          name="school"
-                          value={formState.school}
-                          onChange={handleChange}
+                          leftIcon={<Phone size={18} />}
                           fullWidth
                         />
                       </div>
                       
                       <Input
-                        label="Tỉnh/Thành phố"
-                        name="province"
-                        value={formState.province}
+                        label="Địa chỉ"
+                        name="address"
+                        value={formState.address}
                         onChange={handleChange}
-                        fullWidth
-                      />
-                      
-                      <Input
-                        label="Sở thích & Quan tâm (phân cách bằng dấu phẩy)"
-                        name="interests"
-                        value={formState.interests}
-                        onChange={handleChange}
+                        leftIcon={<MapPin size={18} />}
                         fullWidth
                       />
                       
@@ -295,37 +247,16 @@ const Profile: React.FC = () => {
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <h4 className="text-sm font-medium text-gray-500 mb-1">Lớp</h4>
-                          <p className="text-gray-900">{currentUser.grade || '—'}</p>
+                          <h4 className="text-sm font-medium text-gray-500 mb-1">Số điện thoại</h4>
+                          <p className="text-gray-900">{currentUser.phone || '—'}</p>
                         </div>
                         
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-500 mb-1">Trường</h4>
-                          <p className="text-gray-900">{currentUser.school || '—'}</p>
-                        </div>
+
                       </div>
                       
                       <div>
-                        <h4 className="text-sm font-medium text-gray-500 mb-1">Tỉnh/Thành phố</h4>
-                        <p className="text-gray-900">{currentUser.province || '—'}</p>
-                      </div>
-                      
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-500 mb-1">Sở thích & Quan tâm</h4>
-                        {currentUser.interests && currentUser.interests.length > 0 ? (
-                          <div className="flex flex-wrap gap-2">
-                            {currentUser.interests.map((interest, index) => (
-                              <span 
-                                key={index}
-                                className="inline-block bg-primary-50 text-primary-700 rounded-full px-3 py-1 text-sm"
-                              >
-                                {interest}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-gray-900">—</p>
-                        )}
+                        <h4 className="text-sm font-medium text-gray-500 mb-1">Địa chỉ</h4>
+                        <p className="text-gray-900">{currentUser.address || '—'}</p>
                       </div>
                     </div>
                   )}

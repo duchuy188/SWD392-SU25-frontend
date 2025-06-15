@@ -47,11 +47,6 @@ const Navbar: React.FC = () => {
     { name: 'Lịch sử chat', path: '/chat-history', icon: <MessageSquare size={16} /> },
   ];
 
-  // Add admin links if user has admin role
-  if (currentUser?.role === 'admin') {
-    profileLinks.push({ name: 'Quản trị', path: '/admin', icon: <Settings size={16} /> });
-  }
-
   const isActive = (path: string) => {
     if (path === '/') return location.pathname === '/';
     return location.pathname.startsWith(path);
