@@ -10,15 +10,15 @@ import Majors from './pages/Majors';
 import Career from './pages/Career';
 import Chatbot from './pages/Chatbot';
 import Contact from './pages/Contact';
-import Login from './pages/Login';
-import Register from './pages/Register';
+import Login from './auth/Login';
+import Register from './auth/Register';
 import Profile from './pages/Profile';
 import ChatHistory from './pages/ChatHistory';
 import Unauthorized from './pages/Unauthorized';
 import NotFound from './pages/NotFound';
-import ForgotPassword from './pages/ForgotPassword';
-import VerifyOtp from './pages/VerifyOtp';
-import ResetPassword from './pages/ResetPassword';
+import ForgotPassword from './auth/ForgotPassword';
+import VerifyOtp from './auth/VerifyOtp';
+import ResetPassword from './auth/ResetPassword';
 
 function App() {
   return (

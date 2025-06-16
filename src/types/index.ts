@@ -1,18 +1,12 @@
-export interface User {
+export interface Profile {
   id: string;
   email: string;
   fullName: string;
   phone: string;
   address: string;
-  role: 'student' | 'admin';
-  studentId?: string;
-  profilePicture?: string;
-  avatar?: string;
-  grade?: number;
-  school?: string;
-  province?: string;
-  interests?: string[];
-  createdAt: string;
+  role: string;
+  studentId: string;
+  profilePicture: string;
 }
 
 export interface Major {
@@ -88,13 +82,3 @@ export interface SystemLog {
   source: string;
 }
 
-export interface Profile {
-  id: string;
-  email: string;
-  fullName: string;
-  phone: string;
-  address: string;
-  role: string;
-  studentId: string;
-  profilePicture: string;
-}

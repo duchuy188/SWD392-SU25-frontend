@@ -1,46 +1,46 @@
 import { User, Major, ChatSession, Career, SystemStatus, SystemLog, QuickReply } from '../types';
 
-export const mockUsers: User[] = [
-  {
-    id: 'user_1',
-    fullName: 'Nguyễn Văn An',
-    email: 'student@example.com',
-    role: 'student',
-    avatar: 'https://images.pexels.com/photos/1382731/pexels-photo-1382731.jpeg?auto=compress&cs=tinysrgb&w=200',
-    grade: 11,
-    school: 'THPT Chu Văn An',
-    province: 'Hà Nội',
-    interests: ['CNTT', 'Toán học', 'Vật lý'],
-    createdAt: '2023-09-15T08:00:00Z'
-  },
-  {
-    id: 'user_2',
-    fullName: 'Trần Thị Bình',
-    email: 'teacher@example.com',
-    role: 'teacher',
-    avatar: 'https://images.pexels.com/photos/733872/pexels-photo-733872.jpeg?auto=compress&cs=tinysrgb&w=200',
-    school: 'THPT Nguyễn Huệ',
-    province: 'TP.HCM',
-    createdAt: '2023-08-10T10:30:00Z'
-  },
-  {
-    id: 'user_3',
-    fullName: 'Lê Văn Công',
-    email: 'counselor@example.com',
-    role: 'counselor',
-    avatar: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=200',
-    province: 'Đà Nẵng',
-    createdAt: '2023-07-05T09:15:00Z'
-  },
-  {
-    id: 'user_4',
-    fullName: 'Phạm Thị Dung',
-    email: 'admin@example.com',
-    role: 'admin',
-    avatar: 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=200',
-    createdAt: '2023-06-20T14:20:00Z'
-  }
-];
+// export const mockUsers: User[] = [
+// //   {
+//     id: 'user_1',
+//     fullName: 'Nguyễn Văn An',
+//     email: 'student@example.com',
+//     role: 'student',
+//     avatar: 'https://images.pexels.com/photos/1382731/pexels-photo-1382731.jpeg?auto=compress&cs=tinysrgb&w=200',
+//     grade: 11,
+//     school: 'THPT Chu Văn An',
+//     province: 'Hà Nội',
+//     interests: ['CNTT', 'Toán học', 'Vật lý'],
+//     createdAt: '2023-09-15T08:00:00Z'
+//   }, 
+//   {
+//     id: 'user_2',
+//     fullName: 'Trần Thị Bình',
+//     email: 'teacher@example.com',
+//     role: 'teacher',
+//     avatar: 'https://images.pexels.com/photos/733872/pexels-photo-733872.jpeg?auto=compress&cs=tinysrgb&w=200',
+//     school: 'THPT Nguyễn Huệ',
+//     province: 'TP.HCM',
+//     createdAt: '2023-08-10T10:30:00Z'
+//   },
+//   {
+//     id: 'user_3',
+//     fullName: 'Lê Văn Công',
+//     email: 'counselor@example.com',
+//     role: 'counselor',
+//     avatar: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=200',
+//     province: 'Đà Nẵng',
+//     createdAt: '2023-07-05T09:15:00Z'
+//   },
+//   {
+//     id: 'user_4',
+//     fullName: 'Phạm Thị Dung',
+//     email: 'admin@example.com',
+//     role: 'admin',
+//     avatar: 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=200',
+//     createdAt: '2023-06-20T14:20:00Z'
+//   }
+// ];
 
 export const mockMajors: Major[] = [
   {
