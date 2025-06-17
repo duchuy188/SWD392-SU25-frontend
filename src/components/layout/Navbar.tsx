@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, User, ChevronDown, LogIn, BookOpen, School, MessageSquare, Phone, Settings } from 'lucide-react';
+import { Menu, X, User, ChevronDown, LogIn,  School, MessageSquare} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../ui/Button';
 import Container from '../ui/Container';
@@ -96,9 +96,9 @@ const Navbar: React.FC = () => {
                   className="flex items-center space-x-2 text-gray-700 hover:text-primary-600"
                 >
                   <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-primary-200">
-                    {currentUser?.avatar ? (
+                    {currentUser?.profilePicture ? (
                       <img
-                        src={currentUser.avatar}
+                        src={currentUser.profilePicture}
                         alt={currentUser.fullName}
                         className="w-full h-full object-cover"
                       />
@@ -130,9 +130,8 @@ const Navbar: React.FC = () => {
                           <span className="mr-2">{link.icon}</span>
                           {link.name}
                         </Link>
-                      ))}
-                      <button
-                        onClick={logout}
+                      ))}                      <button
+                        onClick={() => logout()}
                         className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       >
                         <LogIn size={16} className="mr-2" />
@@ -205,9 +204,8 @@ const Navbar: React.FC = () => {
                         <span className="mr-2">{link.icon}</span>
                         {link.name}
                       </Link>
-                    ))}
-                    <button
-                      onClick={logout}
+                    ))}                    <button
+                      onClick={() => logout()}
                       className="flex items-center w-full px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-primary-600 hover:bg-gray-50"
                     >
                       <LogIn size={16} className="mr-2" />

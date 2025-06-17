@@ -1,22 +1,25 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { userServices } from '../services/userServices';
-import { User } from '../types/index';
+import { profileServices } from '../services/profleServices';
+import { Profile } from '../types';
+
 
 interface AuthContextType {
-  currentUser: User | null;
+  currentUser: Profile | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<boolean>;
-  register: (userData: Partial<User>, password: string) => Promise<boolean>;
-  logout: () => void;
+  register: (userData: Partial<Profile>, password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
   hasRole: (roles: string[]) => boolean;
   googleLogin: (idToken: string) => Promise<boolean>;
   isLoading: boolean;
+  updateUserProfile: (updatedUserData: Partial<Profile>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -38,6 +41,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.setItem('edubot_accessToken', newAccessToken);
           localStorage.setItem('edubot_refreshToken', newRefreshToken);
           setIsAuthenticated(true);
+          
+          // Fetch complete profile data on app startup
+          try {
+            const profileResponse = await profileServices.getProfile();
+            if (profileResponse.data && profileResponse.data.user) {
+              const fullProfileData = profileResponse.data.user;
+              setCurrentUser(fullProfileData);
+              localStorage.setItem('edubot_user', JSON.stringify(fullProfileData));
+            }
+          } catch (profileError) {
+            console.error('Error fetching complete profile on startup:', profileError);
+            // Continue with stored user data even if profile fetch fails
+          }
+          
         } catch (error) {
           console.error('Failed to refresh token on startup, logging out:', error);
           // If refresh fails, clear everything and log out
@@ -66,11 +83,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return false;
         }
 
+        // Set initial user data
         setCurrentUser(user);
         setIsAuthenticated(true);
         localStorage.setItem('edubot_user', JSON.stringify(user));
         localStorage.setItem('edubot_accessToken', accessToken);
         localStorage.setItem('edubot_refreshToken', refreshToken);
+        
+        // Fetch complete profile data after successful login
+        try {
+          const profileResponse = await profileServices.getProfile();
+          if (profileResponse.data && profileResponse.data.user) {
+            const fullProfileData = profileResponse.data.user;
+            setCurrentUser(fullProfileData);
+            localStorage.setItem('edubot_user', JSON.stringify(fullProfileData));
+          }
+        } catch (profileError) {
+          console.error('Error fetching complete profile after login:', profileError);
+          // Continue with login even if profile fetch fails
+        }
+        
         return true;
       }
       return false;
@@ -97,6 +129,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('edubot_user', JSON.stringify(user));
         localStorage.setItem('edubot_accessToken', accessToken);
         localStorage.setItem('edubot_refreshToken', refreshToken);
+        
+        // Fetch complete profile data after successful Google login
+        try {
+          const profileResponse = await profileServices.getProfile();
+          if (profileResponse.data && profileResponse.data.user) {
+            const fullProfileData = profileResponse.data.user;
+            setCurrentUser(fullProfileData);
+            localStorage.setItem('edubot_user', JSON.stringify(fullProfileData));
+          }
+        } catch (profileError) {
+          console.error('Error fetching complete profile after Google login:', profileError);
+          // Continue with login even if profile fetch fails
+        }
+        
         return true;
       }
       return false;
@@ -106,7 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (userData: Partial<User>, password: string): Promise<boolean> => {
+  const register = async (userData: Partial<Profile>, password: string): Promise<boolean> => {
     try {
       const response = await userServices.register(userData.email || '', password, userData.fullName || '');
       
@@ -133,17 +179,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // Try to call the logout API
+    try {
+      await userServices.logout();
+    } catch (error) {
+      console.error('Error calling logout API:', error);
+      // Continue with local logout even if API call fails
+    }
+    
+    // Clear local state and storage
     setCurrentUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem('edubot_user');
     localStorage.removeItem('edubot_accessToken');
     localStorage.removeItem('edubot_refreshToken');
   };
-
   const hasRole = (roles: string[]) => {
     if (!currentUser) return false;
     return roles.includes(currentUser.role);
+  };
+
+  // Add a function to update user profile data in context and localStorage
+  const updateUserProfile = (updatedUserData: Partial<Profile>) => {
+    if (!currentUser) return;
+    
+    const updatedUser = { ...currentUser, ...updatedUserData };
+    setCurrentUser(updatedUser);
+    
+    // Update localStorage
+    localStorage.setItem('edubot_user', JSON.stringify(updatedUser));
   };
 
   return (
@@ -155,7 +220,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       logout,
       hasRole,
       googleLogin,
-      isLoading
+      isLoading,
+      updateUserProfile
     }}>
       {children}
     </AuthContext.Provider>

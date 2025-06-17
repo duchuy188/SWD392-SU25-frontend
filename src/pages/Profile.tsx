@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, User, Phone, MapPin, AlertCircle, CheckCircle } from 'lucide-react';
+import { Mail, User, Phone, MapPin, AlertCircle, CheckCircle, Camera } from 'lucide-react';
 import Container from '../components/ui/Container';
 import MainLayout from '../components/layout/MainLayout';
 import Card, { CardBody, CardHeader } from '../components/ui/Card';
@@ -10,8 +10,9 @@ import { useAuth } from '../context/AuthContext';
 import { profileServices } from '../services/profleServices';
 
 const Profile: React.FC = () => {
-  const { currentUser, isAuthenticated } = useAuth();
+  const { currentUser, isAuthenticated, updateUserProfile } = useAuth();
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [formState, setFormState] = useState({
     fullName: '',
@@ -20,6 +21,9 @@ const Profile: React.FC = () => {
     address: '',
     profilePicture: ''
   });
+  
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>('');
   
   const [isEditing, setIsEditing] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
@@ -49,19 +53,50 @@ const Profile: React.FC = () => {
     setFormState(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      // Create preview URL
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+    }
+  };
+
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaveStatus('saving');
     
     try {
-      await profileServices.updateProfile(
+      const updatedUserData = await profileServices.updateProfile(
         formState.fullName,
         formState.phone,
         formState.address,
-        formState.profilePicture
+        selectedFile
       );
+      
+      if (updatedUserData && updatedUserData.user) {
+        updateUserProfile(updatedUserData.user);
+      } else {
+        updateUserProfile({
+          fullName: formState.fullName,
+          phone: formState.phone,
+          address: formState.address,
+          profilePicture: previewUrl || formState.profilePicture
+        });
+      }
+      
       setSaveStatus('success');
       setIsEditing(false);
+      
+      // Clean up preview URL
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
       
       setTimeout(() => {
         setSaveStatus('idle');
@@ -90,19 +125,42 @@ const Profile: React.FC = () => {
             <div>
               <Card>
                 <CardBody className="flex flex-col items-center text-center">
-                  <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-primary-100 mb-4">
-                    {currentUser.profilePicture ? (
-                      <img
-                        src={currentUser.profilePicture}
-                        alt={currentUser.fullName}
-                        className="w-full h-full object-cover"
-                      />
+                  <div 
+                    className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-primary-100 mb-4 group cursor-pointer"
+                    onClick={handleImageClick}
+                  >
+                    {(previewUrl || currentUser.profilePicture) ? (
+                      <>
+                        <img
+                          src={previewUrl || currentUser.profilePicture}
+                          alt={currentUser.fullName}
+                          className="w-full h-full object-cover"
+                        />
+                        {isEditing && (
+                          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Camera size={24} className="text-white" />
+                          </div>
+                        )}
+                      </>
                     ) : (
-                      <div className="w-full h-full bg-primary-100 flex items-center justify-center text-primary-700 text-4xl font-bold">
+                      <div className="w-full h-full bg-primary-100 flex items-center justify-center text-primary-700 text-4xl font-bold relative">
                         {currentUser.fullName.charAt(0).toUpperCase()}
+                        {isEditing && (
+                          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Camera size={24} className="text-white" />
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
+                  
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                  />
                   
                   <h2 className="text-2xl font-bold text-gray-900 mb-1">
                     {currentUser.fullName}
