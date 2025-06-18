@@ -56,7 +56,7 @@ const ResetPassword: React.FC = () => {
           {message && <div className="mb-4 p-3 bg-success-50 text-success-700 rounded">{message}</div>}
           {error && <div className="mb-4 p-3 bg-error-50 text-error-700 rounded">{error}</div>}
           <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
+          <Input
               label="Email"
               type="email"
               value={email}
@@ -65,15 +65,8 @@ const ResetPassword: React.FC = () => {
               required
               disabled={!!(location.state && (location.state as any).email)}
             />
-            <Input
-              label="Mã token đặt lại (resetToken)"
-              type="text"
-              value={resetToken}
-              onChange={e => setResetToken(e.target.value)}
-              fullWidth
-              required
-              disabled={!!(location.state && (location.state as any).resetToken)}
-            />
+          
+            <input type="hidden" value={resetToken} />
             <Input
               label="Mật khẩu mới"
               type="password"

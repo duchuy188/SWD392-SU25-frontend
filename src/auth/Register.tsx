@@ -79,7 +79,12 @@ const Register: React.FC = () => {
       );
       
       if (success) {
-        navigate('/');
+        navigate('/login', { 
+          state: { 
+            registrationSuccess: true, 
+            email: formState.email 
+          } 
+        });
       } else {
         setGeneralError('Email đã được sử dụng. Vui lòng chọn email khác.');
       }

@@ -26,8 +26,12 @@ const ForgotPassword: React.FC = () => {
       await userServices.forgotPassword(email);
       setMessage('Đã gửi mã OTP về email nếu tài khoản tồn tại. Vui lòng kiểm tra hộp thư.');
       navigate('/verify-otp', { state: { email } });
-    } catch (err) {
-      setError('Có lỗi xảy ra. Vui lòng thử lại.');
+    } catch (err: any) {
+      if (err.response && err.response.status === 404) {
+        setError('Email không tồn tại trong hệ thống. Vui lòng kiểm tra lại.');
+      } else {
+        setError('Có lỗi xảy ra. Vui lòng thử lại sau.');
+      }
     } finally {
       setIsLoading(false);
     }

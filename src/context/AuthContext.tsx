@@ -156,20 +156,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const response = await userServices.register(userData.email || '', password, userData.fullName || '');
       
-      if (response.data) {
-        const { user, accessToken, refreshToken } = response.data;
-        
-        // Validate user data
-        if (!user || !user.id || !user.email) {
-          console.error('Invalid user data received');
-          return false;
-        }
-
-        setCurrentUser(user);
-        setIsAuthenticated(true);
-        localStorage.setItem('edubot_user', JSON.stringify(user));
-        localStorage.setItem('edubot_accessToken', accessToken);
-        localStorage.setItem('edubot_refreshToken', refreshToken);
+      if (response.data && response.data.user) {
+  
         return true;
       }
       return false;
