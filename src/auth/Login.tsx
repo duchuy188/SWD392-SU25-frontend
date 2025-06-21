@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Mail, Lock, AlertCircle, School } from 'lucide-react';
+import { Mail, Lock, AlertCircle, School, Eye, EyeOff } from 'lucide-react';
 import Container from '../components/ui/Container';
 import MainLayout from '../components/layout/MainLayout';
 import Input from '../components/ui/Input';
@@ -15,6 +15,7 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   
   const { login, googleLogin } = useAuth();
   const navigate = useNavigate();
@@ -57,23 +58,35 @@ const Login: React.FC = () => {
   };
 
   const handleGoogleLogin = async () => {
+    setError('');
+    setIsLoading(true);
     try {
       const auth = getAuth(firebaseApp);
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       
-
       const idToken = await result.user.getIdToken();
       
       const success = await googleLogin(idToken);
       if (success) {
         navigate(from, { replace: true });
       } else {
-        setError('Đăng nhập bằng Google thất bại');
+        setError('Đăng nhập bằng Google thất bại. Vui lòng thử lại sau.');
       }
-    } catch (err) {
-      console.error('Google login error:', err);
-      setError('Đã xảy ra lỗi khi đăng nhập bằng Google');
+    } catch (err: any) {
+      if (err.code === 'auth/popup-closed-by-user') {
+        setError('Cửa sổ đăng nhập Google đã bị đóng. Vui lòng thử lại.');
+      } else if (err.code === 'auth/cancelled-popup-request') {
+        setError('Yêu cầu đăng nhập đã bị hủy. Vui lòng thử lại.');
+      } else if (err.code === 'auth/popup-blocked') {
+        setError('Trình duyệt đã chặn cửa sổ đăng nhập. Vui lòng cho phép popup và thử lại.');
+      } else if (err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else {
+        setError('Đã xảy ra lỗi khi đăng nhập bằng Google. Vui lòng thử lại sau.');
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -116,10 +129,19 @@ const Login: React.FC = () => {
               
               <Input
                 label="Mật khẩu"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 leftIcon={<Lock size={18} />}
+                rightIcon={
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="focus:outline-none"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                }
                 fullWidth
               />
               
