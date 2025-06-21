@@ -199,6 +199,17 @@ const Profile: React.FC = () => {
                   >
                     {isEditing ? 'Hủy chỉnh sửa' : 'Chỉnh sửa thông tin'}
                   </Button>
+                  
+                  <div className="mt-4 w-full">
+                    <Button
+                      variant="secondary"
+                      onClick={() => navigate('/test-history')}
+                      fullWidth
+                      className="w-full"
+                    >
+                      Xem lịch sử kết quả test
+                    </Button>
+                  </div>
                 </CardBody>
               </Card>
             </div>

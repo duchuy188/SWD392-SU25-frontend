@@ -39,7 +39,7 @@ const Navbar: React.FC = () => {
     { name: 'Ngành học', path: '/majors' },
     { name: 'Hướng nghiệp', path: '/career' },
     { name: 'Chatbot', path: '/chatbot' },
-    { name: 'Liên hệ', path: '/contact' },
+    { name: 'Bài test', path: '/tests' },
   ];
 
   const profileLinks = [

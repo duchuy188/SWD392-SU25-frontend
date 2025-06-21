@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Plus } from 'lucide-react';
+import { Send, Plus, Image } from 'lucide-react';
 import Container from '../components/ui/Container';
 import MainLayout from '../components/layout/MainLayout';
 import ChatBubble from '../components/chat/ChatBubble';
@@ -9,23 +8,116 @@ import Button from '../components/ui/Button';
 import { ChatMessage, QuickReply } from '../types';
 import { mockQuickReplies } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
+import { chatServices } from '../services/chatService';
+import { useLocation } from 'react-router-dom';
 
 const Chatbot: React.FC = () => {
   const { isAuthenticated } = useAuth();
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      role: 'bot',
-      content: 'Xin chào! Tôi là EduBot, trợ lý AI tư vấn học tập và hướng nghiệp. Bạn cần hỗ trợ gì?',
-      timestamp: new Date().toISOString()
-    }
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
+  const [isTyping, setIsTyping] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [hasChatSession, setHasChatSession] = useState<boolean>(false);
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const chatIdFromURL = queryParams.get('chatId');
+  
+  const [currentChatId, setCurrentChatId] = useState<string | null>(
+    chatIdFromURL || localStorage.getItem('edubot_current_chat_id')
+  );
+  
+  useEffect(() => {
+    if (chatIdFromURL) {
+      localStorage.setItem('edubot_current_chat_id', chatIdFromURL);
+      console.log("Setting chat ID from URL:", chatIdFromURL);
+    }
+  }, [chatIdFromURL]);
 
-  // Scroll to bottom when messages change
+  // Thêm useEffect để debug
+  useEffect(() => {
+    // Log ra để kiểm tra
+    console.log("Current chat ID from localStorage:", localStorage.getItem('edubot_current_chat_id'));
+  }, []);
+
+  // Thay đổi useEffect đầu tiên
+  useEffect(() => {
+    const initializeChat = async () => {
+      setIsLoading(true);
+      setIsTyping(true); // Hiển thị trạng thái đang typing khi đang tải
+      
+      // Kiểm tra xem có ID chat đã lưu trong localStorage không
+      const savedChatId = localStorage.getItem('edubot_current_chat_id');
+      console.log("Checking for saved chat ID:", savedChatId);
+      
+      if (savedChatId) {
+        // Nếu có ID chat đã lưu, tải tin nhắn của chat đó bằng API mới
+        try {
+          console.log('Đang tải chat với ID:', savedChatId);
+          const response = await chatServices.getChatById(savedChatId);
+          console.log("Chat data response:", response.data);
+          
+          // Kiểm tra cấu trúc đúng của API response
+          if (response.data && response.data.conversation && response.data.conversation.interactions && response.data.conversation.interactions.length > 0) {
+            // Format tin nhắn từ interactions
+            const formattedMessages = response.data.conversation.interactions.map((interaction: any) => [
+              // Tin nhắn người dùng
+              {
+                id: `user_${interaction._id}`,
+                role: 'user',
+                content: interaction.query,
+                timestamp: interaction.timestamp
+              },
+              // Tin nhắn bot
+              {
+                id: `bot_${interaction._id}`,
+                role: 'bot',
+                content: interaction.response,
+                timestamp: interaction.timestamp
+              }
+            ]).flat(); // Làm phẳng mảng vì mỗi interaction tạo ra 2 tin nhắn
+            
+            console.log("Loaded existing chat messages:", formattedMessages.length);
+            setMessages(formattedMessages);
+            
+            // Cập nhật currentChatId
+            setCurrentChatId(response.data.conversation._id);
+          } else {
+            console.log("No interactions found in existing chat, creating new chat");
+            createNewChatSession();
+          }
+        } catch (error) {
+          console.error('Lỗi khi tải chat theo ID:', error);
+          // Nếu không tìm thấy chat (404) hoặc có lỗi khác, tạo mới
+          createNewChatSession();
+        } finally {
+          // Đảm bảo tắt các trạng thái loading và typing
+          setIsLoading(false);
+          setIsTyping(false);
+        }
+      } else {
+        console.log("No saved chat ID found, creating new chat");
+        // Không có ID chat đã lưu, tạo mới
+        createNewChatSession();
+        // createNewChatSession sẽ tự xử lý việc tắt loading và typing
+      }
+    };
+    
+    initializeChat();
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+    
+      fetchChatHistory();
+    } else {
+     
+      checkExistingChatOrCreateWelcome();
+    }
+  }, [isAuthenticated]);
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
@@ -34,11 +126,103 @@ const Chatbot: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const checkExistingChatOrCreateWelcome = async () => {
+    try {
+      setIsLoading(true);
+ 
+      const historyResponse = await chatServices.getChatHistory();
+      
+      if (historyResponse.data && historyResponse.data.length > 0) {
+        // We have existing chats, format and display them
+        const formattedMessages = historyResponse.data.flatMap((chat: any) => 
+          chat.messages.map((msg: any) => ({
+            id: msg._id || `msg_${Date.now() * Math.random()}`,
+            role: msg.sender === 'user' ? 'user' : 'bot',
+            content: msg.content,
+            timestamp: msg.timestamp || new Date().toISOString()
+          }))
+        );
+        
+        setMessages(formattedMessages);
+      } else {
+        // No existing chats, create welcome message
+        fetchWelcomeMessage();
+      }
+    } catch (error) {
+      console.error('Error checking chat history:', error);
+      // If error occurs, try to create welcome message
+      fetchWelcomeMessage();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchWelcomeMessage = async () => {
+    try {
+      setIsTyping(true);
+      
+      // Create a new chat and get welcome message
+      await chatServices.createNewChat();
+      const welcomeResponse = await chatServices.sendMessage("Xin chào");
+      
+      setIsTyping(false);
+      
+      const welcomeText = welcomeResponse.data.response || 'Xin chào! Tôi là EduBot, trợ lý AI tư vấn học tập và hướng nghiệp. Bạn cần hỗ trợ gì?';
+      
+      const botMessage: ChatMessage = {
+        id: `welcome_${Date.now()}`,
+        role: 'bot',
+        content: welcomeText,
+        timestamp: new Date().toISOString()
+      };
+      
+      setMessages([botMessage]);
+    } catch (error) {
+      console.error('Error fetching welcome message:', error);
+      setIsTyping(false);
+      
+      // Use default welcome message if error
+      const defaultMessage: ChatMessage = {
+        id: 'welcome',
+        role: 'bot',
+        content: 'Xin chào! Tôi là EduBot, trợ lý AI tư vấn học tập và hướng nghiệp. Bạn cần hỗ trợ gì?',
+        timestamp: new Date().toISOString()
+      };
+      
+      setMessages([defaultMessage]);
+    }
+  };
+
+  const fetchChatHistory = async () => {
+    try {
+      setIsLoading(true);
+      const response = await chatServices.getChatHistory();
+      
+      if (response.data && response.data.length > 0) {
+        // Format chat history data
+        const formattedMessages = response.data.flatMap((chat: any) => 
+          chat.messages.map((msg: any) => ({
+            id: msg._id || `msg_${Date.now() * Math.random()}`,
+            role: msg.sender === 'user' ? 'user' : 'bot',
+            content: msg.content,
+            timestamp: msg.timestamp || new Date().toISOString()
+          }))
+        );
+        
+        setMessages(formattedMessages);
+      }
+    } catch (error) {
+      console.error('Error fetching chat history:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (inputValue.trim() === '') return;
 
-    // Add user message
+    // Add user message to UI immediately
     const userMessage: ChatMessage = {
       id: `user_${Date.now()}`,
       role: 'user',
@@ -46,25 +230,54 @@ const Chatbot: React.FC = () => {
       timestamp: new Date().toISOString()
     };
     setMessages(prev => [...prev, userMessage]);
+    
+    const currentInput = inputValue;
     setInputValue('');
 
-    // Simulate bot typing
+    // Show typing indicator
     setIsTyping(true);
-    setTimeout(() => {
-      // Add bot response after delay
+    
+    try {
+      // Send message to API
+      const response = await chatServices.sendMessage(currentInput);
+      
+      // Hide typing indicator
       setIsTyping(false);
+      
+      // Add bot response from API
       const botMessage: ChatMessage = {
         id: `bot_${Date.now()}`,
         role: 'bot',
-        content: generateResponse(inputValue),
+        content: response.data.response || 'Xin lỗi, tôi không thể xử lý yêu cầu của bạn lúc này.',
         timestamp: new Date().toISOString()
       };
+      
       setMessages(prev => [...prev, botMessage]);
-    }, 1500);
+      
+      // Kiểm tra xem response có chứa chat ID mới không (trong trường hợp tạo chat mới tự động)
+      if (response.data && response.data.conversation && response.data.conversation._id) {
+        const chatId = response.data.conversation._id;
+        setCurrentChatId(chatId);
+        localStorage.setItem('edubot_current_chat_id', chatId);
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setIsTyping(false);
+      
+      // Add error message
+      const errorMessage: ChatMessage = {
+        id: `error_${Date.now()}`,
+        role: 'bot',
+        content: 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.',
+        timestamp: new Date().toISOString()
+      };
+      
+      setMessages(prev => [...prev, errorMessage]);
+    }
   };
 
-  const handleQuickReply = (reply: QuickReply) => {
-    // Add user message from quick reply
+  const handleQuickReply = async (reply: QuickReply) => {
+    // Add user message from quick reply to UI immediately
     const userMessage: ChatMessage = {
       id: `user_${Date.now()}`,
       role: 'user',
@@ -73,59 +286,178 @@ const Chatbot: React.FC = () => {
     };
     setMessages(prev => [...prev, userMessage]);
 
-    // Simulate bot typing
+    // Show typing indicator
     setIsTyping(true);
-    setTimeout(() => {
-      // Add bot response after delay
+    
+    try {
+      // Send message to API
+      const response = await chatServices.sendMessage(reply.text);
+      
+      // Hide typing indicator
       setIsTyping(false);
+      
+      // Add bot response from API
       const botMessage: ChatMessage = {
         id: `bot_${Date.now()}`,
         role: 'bot',
-        content: generateResponse(reply.text),
+        content: response.data.response || 'Xin lỗi, tôi không thể xử lý yêu cầu của bạn lúc này.',
         timestamp: new Date().toISOString()
       };
+      
       setMessages(prev => [...prev, botMessage]);
-    }, 1500);
-  };
-
-  const startNewChat = () => {
-    setMessages([
-      {
-        id: 'welcome_new',
+    } catch (error) {
+      console.error('Error sending quick reply:', error);
+      setIsTyping(false);
+      
+      // Add error message
+      const errorMessage: ChatMessage = {
+        id: `error_${Date.now()}`,
         role: 'bot',
-        content: 'Tôi đã bắt đầu cuộc trò chuyện mới. Bạn cần hỗ trợ gì?',
+        content: 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.',
         timestamp: new Date().toISOString()
-      }
-    ]);
-    if (inputRef.current) {
-      inputRef.current.focus();
+      };
+      
+      setMessages(prev => [...prev, errorMessage]);
     }
   };
 
-  // Simple mock response generator
-  const generateResponse = (message: string): string => {
-    const lowerMsg = message.toLowerCase();
+  const startNewChat = async () => {
+    try {
+      // Xóa ID chat cũ
+      localStorage.removeItem('edubot_current_chat_id');
+      setCurrentChatId(null);
+      
+      // Tạo chat mới
+      await createNewChatSession();
+      
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    } catch (error) {
+      console.error('Lỗi khi tạo chat mới:', error);
+      
+      // Hiển thị thông báo lỗi
+      const errorMessage: ChatMessage = {
+        id: `error_${Date.now()}`,
+        role: 'bot',
+        content: 'Xin lỗi, không thể tạo cuộc trò chuyện mới. Vui lòng thử lại sau.',
+        timestamp: new Date().toISOString()
+      };
+      
+      setMessages(prev => [...prev, errorMessage]);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
     
-    if (lowerMsg.includes('ngành') && lowerMsg.includes('cntt')) {
-      return 'Ngành Công nghệ thông tin (CNTT) là một lĩnh vực năng động với nhiều cơ hội việc làm. Ở Việt Nam, các trường đại học hàng đầu đào tạo CNTT bao gồm Đại học Bách khoa Hà Nội, Đại học Công nghệ - ĐHQGHN, và Đại học FPT.\n\nNgành này yêu cầu kiến thức về toán học, kỹ năng lập trình, và khả năng giải quyết vấn đề. Cơ hội việc làm rất đa dạng từ lập trình viên, kỹ sư phần mềm đến chuyên gia an ninh mạng, với mức lương khởi điểm khoảng 10-15 triệu đồng/tháng.\n\nBạn có quan tâm đến lĩnh vực cụ thể nào trong CNTT không?';
+    // Add user message with image info
+    const userMessage: ChatMessage = {
+      id: `user_${Date.now()}`,
+      role: 'user',
+      content: `[Đã gửi hình ảnh: ${file.name}]`,
+      timestamp: new Date().toISOString()
+    };
+    setMessages(prev => [...prev, userMessage]);
+    
+    // Show typing indicator
+    setIsTyping(true);
+    
+    try {
+      // Send image to API
+      const response = await chatServices.sendMessage(file);
+      
+      // Hide typing indicator
+      setIsTyping(false);
+      
+      // Add bot response from API
+      const botMessage: ChatMessage = {
+        id: `bot_${Date.now()}`,
+        role: 'bot',
+        content: response.data.response || 'Xin lỗi, tôi không thể xử lý hình ảnh này.',
+        timestamp: new Date().toISOString()
+      };
+      
+      setMessages(prev => [...prev, botMessage]);
+    } catch (error) {
+      console.error('Error sending image:', error);
+      setIsTyping(false);
+      
+      // Add error message
+      const errorMessage: ChatMessage = {
+        id: `error_${Date.now()}`,
+        role: 'bot',
+        content: 'Xin lỗi, không thể xử lý hình ảnh. Vui lòng thử lại sau.',
+        timestamp: new Date().toISOString()
+      };
+      
+      setMessages(prev => [...prev, errorMessage]);
     }
     
-    if (lowerMsg.includes('thi') && lowerMsg.includes('thpt')) {
-      return 'Kỳ thi THPT Quốc gia là kỳ thi quan trọng xác định việc tốt nghiệp THPT và là căn cứ tuyển sinh đại học, cao đẳng.\n\nĐể chuẩn bị tốt, bạn nên:\n1. Lập kế hoạch ôn tập chi tiết cho từng môn\n2. Tập trung vào những dạng bài thường gặp\n3. Làm nhiều đề thi thử và đề các năm trước\n4. Tham gia các nhóm học tập để trao đổi\n5. Nghỉ ngơi đầy đủ, giữ tinh thần thoải mái\n\nBạn cần tư vấn cụ thể về môn nào?';
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
-    
-    if (lowerMsg.includes('tính cách') || lowerMsg.includes('phù hợp')) {
-      return 'Việc chọn ngành học và nghề nghiệp phù hợp với tính cách là rất quan trọng. Nếu bạn:\n\n- Thích giao tiếp, hướng ngoại: có thể phù hợp với ngành Marketing, Quản trị kinh doanh, Báo chí, Du lịch\n\n- Tỉ mỉ, logic, thích phân tích: có thể phù hợp với CNTT, Kỹ thuật, Tài chính, Kế toán\n\n- Sáng tạo, nghệ thuật: có thể phù hợp với Thiết kế, Kiến trúc, Truyền thông\n\n- Quan tâm đến người khác, đồng cảm: có thể phù hợp với Y khoa, Tâm lý học, Công tác xã hội\n\nBạn thấy mình có những đặc điểm tính cách nào nổi bật?';
+  };
+
+  const createNewChatSession = async () => {
+    try {
+      setIsTyping(true);
+      
+      // Tạo chat mới
+      const newChatResponse = await chatServices.createNewChat();
+      console.log('Tạo chat mới, response:', newChatResponse.data);
+      
+      // Lấy ID chat từ response
+      let newChatId = null;
+      if (newChatResponse.data && newChatResponse.data._id) {
+        newChatId = newChatResponse.data._id;
+      } else if (newChatResponse.data && newChatResponse.data.conversation && newChatResponse.data.conversation._id) {
+        newChatId = newChatResponse.data.conversation._id;
+      }
+      
+      if (newChatId) {
+        console.log("New chat ID extracted:", newChatId);
+        setCurrentChatId(newChatId);
+        localStorage.setItem('edubot_current_chat_id', newChatId);
+      }
+      
+      // Gửi tin nhắn chào mừng
+      const welcomeResponse = await chatServices.sendMessage("Xin chào");
+      setIsTyping(false);
+      
+      const welcomeText = welcomeResponse.data.response || 'Xin chào! Tôi là EduBot, trợ lý AI tư vấn học tập và hướng nghiệp. Bạn cần hỗ trợ gì?';
+      
+      const botMessage: ChatMessage = {
+        id: `welcome_${Date.now()}`,
+        role: 'bot',
+        content: welcomeText,
+        timestamp: new Date().toISOString()
+      };
+      
+      setMessages([botMessage]);
+    } catch (error) {
+      console.error('Lỗi khi tạo chat mới:', error);
+      setIsTyping(false);
+      
+      // Sử dụng tin nhắn mặc định nếu có lỗi
+      const defaultMessage: ChatMessage = {
+        id: 'welcome',
+        role: 'bot',
+        content: 'Xin chào! Tôi là EduBot, trợ lý AI tư vấn học tập và hướng nghiệp. Bạn cần hỗ trợ gì?',
+        timestamp: new Date().toISOString()
+      };
+      
+      setMessages([defaultMessage]);
     }
-    
-    return 'Cảm ơn bạn đã chia sẻ. Tôi có thể cung cấp thông tin chi tiết về các ngành học, tư vấn hướng nghiệp, hoặc giải đáp thắc mắc về kỳ thi THPT Quốc gia. Bạn cần tìm hiểu thêm về vấn đề gì?';
   };
 
   return (
     <MainLayout>
       <div className="min-h-screen bg-gray-50 pt-16 pb-8">
         <Container>
-          <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-soft overflow-hidden flex flex-col h-[calc(100vh-180px)]">
+          <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-soft overflow-hidden flex flex-col h-[calc(100vh-120px)]">
             {/* Header */}
             <div className="bg-primary-600 text-white p-4 flex justify-between items-center">
               <h1 className="text-xl font-semibold">EduBot Tư vấn</h1>
@@ -141,56 +473,70 @@ const Chatbot: React.FC = () => {
             </div>
             
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
-              <div className="space-y-4">
-                {messages.map((message) => (
-                  <ChatBubble key={message.id} message={message} />
-                ))}
-                {isTyping && (
-                  <div className="flex justify-start mb-4">
-                    <div className="bg-white text-gray-500 rounded-2xl px-4 py-3 border border-gray-200">
-                      <div className="flex space-x-1">
-                        <div className="w-2 h-2 rounded-full bg-gray-300 animate-bounce\" style={{ animationDelay: '0ms' }}></div>
-                        <div className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                        <div className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '300ms' }}></div>
+            <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
+              {isLoading ? (
+                <div className="flex justify-center items-center h-full">
+                  <div className="flex flex-col items-center">
+                    <div className="w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+                    <p className="mt-4 text-gray-500">Đang tải tin nhắn...</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {messages.map((message) => (
+                    <ChatBubble key={message.id} message={message} />
+                  ))}
+                  {isTyping && (
+                    <div className="flex justify-start mb-4">
+                      <div className="bg-white text-gray-500 rounded-2xl px-4 py-3 border border-gray-200">
+                        <div className="flex space-x-1">
+                          <div className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                          <div className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                          <div className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-            </div>
-            
-            {/* Quick Replies */}
-            <div className="px-4 py-3 border-t border-gray-100 bg-white overflow-x-auto">
-              <div className="flex space-x-2">
-                {mockQuickReplies.map((reply) => (
-                  <QuickReplyButton
-                    key={reply.id}
-                    reply={reply}
-                    onClick={handleQuickReply}
-                  />
-                ))}
-              </div>
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+              )}
             </div>
             
             {/* Input */}
-            <div className="p-4 border-t border-gray-200 bg-white">
+            <div className="p-5 border-t border-gray-200 bg-white">
               {isAuthenticated ? (
-                <form onSubmit={handleSubmit} className="flex space-x-2">
+                <form onSubmit={handleSubmit} className="flex space-x-3">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    icon={<Image size={20} />}
+                    className="rounded-full"
+                    title="Gửi hình ảnh"
+                  >
+                    <span className="sr-only">Gửi hình ảnh</span>
+                  </Button>
                   <input
                     ref={inputRef}
                     type="text"
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                     placeholder="Nhập câu hỏi của bạn..."
-                    className="flex-1 border border-gray-300 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="flex-1 border border-gray-300 rounded-full px-5 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                   <Button 
                     type="submit" 
                     variant="primary"
-                    icon={<Send size={18} />}
-                    className="rounded-full"
+                    icon={<Send size={20} />}
+                    className="rounded-full px-6 py-3"
+                    disabled={isTyping}
                   >
                     Gửi
                   </Button>
@@ -201,12 +547,16 @@ const Chatbot: React.FC = () => {
                     Đăng nhập để lưu lịch sử chat và nhận tư vấn cá nhân hóa
                   </p>
                   <div className="flex justify-center space-x-4">
-                    <Button as="a" href="/login" variant="outline" size="sm">
-                      Đăng nhập
-                    </Button>
-                    <Button as="a" href="/register" variant="primary" size="sm">
-                      Đăng ký
-                    </Button>
+                    <a href="/login" className="inline-block">
+                      <Button variant="outline" size="sm">
+                        Đăng nhập
+                      </Button>
+                    </a>
+                    <a href="/register" className="inline-block">
+                      <Button variant="primary" size="sm">
+                        Đăng ký
+                      </Button>
+                    </a>
                   </div>
                 </div>
               )}
