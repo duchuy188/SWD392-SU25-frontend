@@ -23,26 +23,85 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Check if user is already logged in (from localStorage)
+  const setupTokenRefresh = (expiresIn: number = 3600000) => {
+    const existingTimer = window.localStorage.getItem('edubot_refreshTimer');
+    if (existingTimer) {
+      clearTimeout(parseInt(existingTimer));
+    }
+
+    const now = Date.now();
+    localStorage.setItem('edubot_tokenCreatedAt', now.toString());
+    localStorage.setItem('edubot_tokenExpiresIn', expiresIn.toString());
+
+    const timer = setTimeout(async () => {
+      const refreshToken = localStorage.getItem('edubot_refreshToken');
+      if (refreshToken) {
+        try {
+          const response = await userServices.refreshToken(refreshToken);
+          const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data;
+          
+          localStorage.setItem('edubot_accessToken', newAccessToken);
+          localStorage.setItem('edubot_refreshToken', newRefreshToken);
+          
+          setupTokenRefresh();
+        } catch (error) {
+          await logout();
+        }
+      }
+    }, expiresIn - 60000);
+
+    window.localStorage.setItem('edubot_refreshTimer', timer.toString());
+  };
+
+  const checkTokenExpiration = (): boolean => {
+    const tokenCreatedAt = localStorage.getItem('edubot_tokenCreatedAt');
+    const tokenExpiresIn = localStorage.getItem('edubot_tokenExpiresIn');
+
+    if (!tokenCreatedAt || !tokenExpiresIn) {
+      return true;
+    }
+
+    const createdAt = parseInt(tokenCreatedAt);
+    const expiresIn = parseInt(tokenExpiresIn);
+    const now = Date.now();
+
+    return (now - createdAt) >= expiresIn;
+  };
+
   useEffect(() => {
     const initializeAuth = async () => {
       const storedUser = localStorage.getItem('edubot_user');
       const storedRefreshToken = localStorage.getItem('edubot_refreshToken');
+      const storedAccessToken = localStorage.getItem('edubot_accessToken');
 
-      if (storedUser && storedRefreshToken) {
+      if (storedUser && storedRefreshToken && storedAccessToken) {
         try {
           const user = JSON.parse(storedUser);
           setCurrentUser(user);
-          // Attempt to refresh token on app load
-          const response = await userServices.refreshToken(storedRefreshToken);
-          const newAccessToken = response.data.accessToken;
-          const newRefreshToken = response.data.refreshToken;
+          
+          if (checkTokenExpiration()) {
+            const response = await userServices.refreshToken(storedRefreshToken);
+            const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data;
 
-          localStorage.setItem('edubot_accessToken', newAccessToken);
-          localStorage.setItem('edubot_refreshToken', newRefreshToken);
+            localStorage.setItem('edubot_accessToken', newAccessToken);
+            localStorage.setItem('edubot_refreshToken', newRefreshToken);
+            
+            setupTokenRefresh();
+          } else {
+            const tokenCreatedAt = parseInt(localStorage.getItem('edubot_tokenCreatedAt') || '0');
+            const tokenExpiresIn = parseInt(localStorage.getItem('edubot_tokenExpiresIn') || '3600000');
+            const now = Date.now();
+            const remainingTime = tokenExpiresIn - (now - tokenCreatedAt);
+            
+            if (remainingTime > 0) {
+              setupTokenRefresh(remainingTime);
+            } else {
+              setupTokenRefresh();
+            }
+          }
+          
           setIsAuthenticated(true);
           
-          // Fetch complete profile data on app startup
           try {
             const profileResponse = await profileServices.getProfile();
             if (profileResponse.data && profileResponse.data.user) {
@@ -51,24 +110,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               localStorage.setItem('edubot_user', JSON.stringify(fullProfileData));
             }
           } catch (profileError) {
-            console.error('Error fetching complete profile on startup:', profileError);
-            // Continue with stored user data even if profile fetch fails
+            // Handle silently
           }
-          
         } catch (error) {
-          console.error('Failed to refresh token on startup, logging out:', error);
-          // If refresh fails, clear everything and log out
-          logout(); 
-        } finally {
-          setIsLoading(false);
+          await logout();
         }
       } else {
-        logout();
-        setIsLoading(false);
+        await logout();
       }
+      setIsLoading(false);
     };
 
     initializeAuth();
+
+    return () => {
+      const timerID = window.localStorage.getItem('edubot_refreshTimer');
+      if (timerID) {
+        clearTimeout(parseInt(timerID));
+      }
+    };
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
@@ -77,20 +137,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (response.data) {
         const { user, accessToken, refreshToken } = response.data;
         
-        // Validate user data
         if (!user || !user.id || !user.email) {
-          console.error('Invalid user data received');
           return false;
         }
 
-        // Set initial user data
         setCurrentUser(user);
         setIsAuthenticated(true);
         localStorage.setItem('edubot_user', JSON.stringify(user));
         localStorage.setItem('edubot_accessToken', accessToken);
         localStorage.setItem('edubot_refreshToken', refreshToken);
         
-        // Fetch complete profile data after successful login
+        setupTokenRefresh();
+        
         try {
           const profileResponse = await profileServices.getProfile();
           if (profileResponse.data && profileResponse.data.user) {
@@ -99,15 +157,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             localStorage.setItem('edubot_user', JSON.stringify(fullProfileData));
           }
         } catch (profileError) {
-          console.error('Error fetching complete profile after login:', profileError);
-          // Continue with login even if profile fetch fails
+          // Handle silently
         }
         
         return true;
       }
       return false;
     } catch (error) {
-      console.error('Login error:', error);
       return false;
     }
   };
@@ -118,9 +174,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (response.data) {
         const { user, accessToken, refreshToken } = response.data;
         
-        // Validate user data
         if (!user || !user.id || !user.email) {
-          console.error('Invalid user data received');
           return false;
         }
 
@@ -130,7 +184,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('edubot_accessToken', accessToken);
         localStorage.setItem('edubot_refreshToken', refreshToken);
         
-        // Fetch complete profile data after successful Google login
+        setupTokenRefresh();
+        
         try {
           const profileResponse = await profileServices.getProfile();
           if (profileResponse.data && profileResponse.data.user) {
@@ -139,15 +194,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             localStorage.setItem('edubot_user', JSON.stringify(fullProfileData));
           }
         } catch (profileError) {
-          console.error('Error fetching complete profile after Google login:', profileError);
-          // Continue with login even if profile fetch fails
+          // Handle silently
         }
         
         return true;
       }
       return false;
     } catch (error) {
-      console.error('Google login error:', error);
       return false;
     }
   };
@@ -162,26 +215,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return false;
     } catch (error) {
-      console.error('Registration error:', error);
       return false;
     }
   };
 
   const logout = async () => {
-    // Try to call the logout API
     try {
       await userServices.logout();
     } catch (error) {
-      console.error('Error calling logout API:', error);
-      // Continue with local logout even if API call fails
+      // Handle silently
     }
     
-    // Clear local state and storage
     setCurrentUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem('edubot_user');
     localStorage.removeItem('edubot_accessToken');
     localStorage.removeItem('edubot_refreshToken');
+    localStorage.removeItem('edubot_refreshTimer');
+    localStorage.removeItem('edubot_tokenCreatedAt');
+    localStorage.removeItem('edubot_tokenExpiresIn');
   };
   const hasRole = (roles: string[]) => {
     if (!currentUser) return false;
