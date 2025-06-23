@@ -98,7 +98,7 @@ axiosInstance.interceptors.response.use(
         } catch (refreshError) {
           isRefreshing = false;
           
-          // Clear storage and redirect to login
+          // Clear storage
           localStorage.removeItem('edubot_user');
           localStorage.removeItem('edubot_accessToken');
           localStorage.removeItem('edubot_refreshToken');
@@ -106,7 +106,10 @@ axiosInstance.interceptors.response.use(
           localStorage.removeItem('edubot_tokenCreatedAt');
           localStorage.removeItem('edubot_tokenExpiresIn');
           
-          window.location.href = '/login';
+          // Chỉ redirect nếu không đang ở trang login
+          if (!window.location.pathname.includes('/login')) {
+            window.location.href = '/login';
+          }
           return Promise.reject(refreshError);
         }
       } else {

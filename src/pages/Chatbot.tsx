@@ -3,10 +3,8 @@ import { Send, Plus, Image } from 'lucide-react';
 import Container from '../components/ui/Container';
 import MainLayout from '../components/layout/MainLayout';
 import ChatBubble from '../components/chat/ChatBubble';
-import QuickReplyButton from '../components/chat/QuickReplyButton';
 import Button from '../components/ui/Button';
 import { ChatMessage, QuickReply } from '../types';
-import { mockQuickReplies } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
 import { chatServices } from '../services/chatService';
 import { useLocation } from 'react-router-dom';
@@ -110,13 +108,16 @@ const Chatbot: React.FC = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
-    
-      fetchChatHistory();
-    } else {
-     
+      // Chỉ gọi fetchChatHistory nếu không có chatId trong URL hoặc localStorage
+      const savedChatId = chatIdFromURL || localStorage.getItem('edubot_current_chat_id');
+      if (!savedChatId) {
+        fetchChatHistory();
+      }
+    } else if (!localStorage.getItem('edubot_current_chat_id')) {
+      // Chỉ gọi checkExistingChatOrCreateWelcome nếu không có chat ID
       checkExistingChatOrCreateWelcome();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, chatIdFromURL]);
 
   useEffect(() => {
     scrollToBottom();
@@ -335,16 +336,8 @@ const Chatbot: React.FC = () => {
       }
     } catch (error) {
       console.error('Lỗi khi tạo chat mới:', error);
-      
-      // Hiển thị thông báo lỗi
-      const errorMessage: ChatMessage = {
-        id: `error_${Date.now()}`,
-        role: 'bot',
-        content: 'Xin lỗi, không thể tạo cuộc trò chuyện mới. Vui lòng thử lại sau.',
-        timestamp: new Date().toISOString()
-      };
-      
-      setMessages(prev => [...prev, errorMessage]);
+      setIsTyping(false);
+      setMessages([]); // Để trống tin nhắn thay vì hiển thị tin nhắn mặc định
     }
   };
 
@@ -440,16 +433,7 @@ const Chatbot: React.FC = () => {
     } catch (error) {
       console.error('Lỗi khi tạo chat mới:', error);
       setIsTyping(false);
-      
-      // Sử dụng tin nhắn mặc định nếu có lỗi
-      const defaultMessage: ChatMessage = {
-        id: 'welcome',
-        role: 'bot',
-        content: 'Xin chào! Tôi là EduBot, trợ lý AI tư vấn học tập và hướng nghiệp. Bạn cần hỗ trợ gì?',
-        timestamp: new Date().toISOString()
-      };
-      
-      setMessages([defaultMessage]);
+      setMessages([]); 
     }
   };
 
