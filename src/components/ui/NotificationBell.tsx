@@ -1,4 +1,3 @@
-// src/components/ui/NotificationBell.tsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { getMessaging, onMessage } from 'firebase/messaging';
@@ -191,24 +190,23 @@ const NotificationBell: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [showDropdown, setShowDropdown] = useState<boolean>(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
-  const [showDebug, setShowDebug] = useState<boolean>(false); // For debugging
+  const [showDebug, setShowDebug] = useState<boolean>(false); 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { isAuthenticated } = useAuth();
 
-  // Load notifications from localStorage
   const loadNotificationsFromStorage = useCallback(() => {
     try {
       const savedData = localStorage.getItem(STORAGE_KEY);
       if (savedData) {
         const parsedData = JSON.parse(savedData);
         
-        // Convert all timestamp strings to Date objects
+        
         const formattedNotifications = parsedData.map((n: any) => ({
           ...n,
           timestamp: new Date(n.timestamp)
         }));
         
-        // Đảm bảo không có thông báo trùng lặp
+        
         const uniqueNotifications = [];
         const seenIds = new Set();
         
@@ -221,36 +219,35 @@ const NotificationBell: React.FC = () => {
         
         setNotifications(uniqueNotifications);
         
-        // Tính lại số lượng thông báo chưa đọc
+       
         const unread = uniqueNotifications.filter(n => !n.read).length;
         console.log("Số thông báo chưa đọc:", unread);
         setUnreadCount(unread);
       }
     } catch (error) {
-      // If there's an error with the stored data, clear it
+    
       localStorage.removeItem(STORAGE_KEY);
       setNotifications([]);
       setUnreadCount(0);
     }
   }, []);
 
-  // Save notifications to localStorage
+ 
   const saveNotificationsToStorage = useCallback((notifs: Notification[]) => {
     try {
       const notifData = JSON.stringify(notifs);
       localStorage.setItem(STORAGE_KEY, notifData);
     } catch (error) {
-      // Handle silently
+      
     }
   }, []);
 
-  // Add a new notification
+ 
   const addNotification = useCallback((notification: Notification) => {
-    // Kiểm tra xem thông báo có tồn tại chưa
     setNotifications(prev => {
-      // Kiểm tra xem ID đã tồn tại chưa
+     
       if (prev.some(n => n.id === notification.id)) {
-        return prev; // Nếu đã tồn tại, không thêm vào
+        return prev;
       }
       
       const updated = [notification, ...prev];
@@ -262,8 +259,9 @@ const NotificationBell: React.FC = () => {
         // Handle silently
       }
       
-      // Chỉ tăng unreadCount khi thông báo thực sự được thêm vào
-      setUnreadCount(prevCount => prevCount + 1);
+    
+      const unreadMessages = updated.filter(n => !n.read).length;
+      setUnreadCount(unreadMessages);
       
       return updated;
     });
@@ -495,11 +493,11 @@ const NotificationBell: React.FC = () => {
     try {
       await Notification.requestPermission();
     } catch (error) {
-      // Handle silently
+     
     }
   };
 
-  // Thêm hàm này vào component NotificationBell
+  
   const forceResetNotifications = () => {
     localStorage.removeItem(STORAGE_KEY);
     setNotifications([]);
@@ -509,7 +507,7 @@ const NotificationBell: React.FC = () => {
 
   return (
     <div style={styles.container}>
-      {/* Hidden debug button - Double-click on bell to activate */}
+    
       <div 
         style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', cursor: 'pointer', zIndex: -1 }} 
         onDoubleClick={toggleDebug}
