@@ -38,7 +38,7 @@ const MajorCard: React.FC<MajorCardProps> = ({ major }) => {
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-500">
-              {major.universities.length} trường đại học
+              FPT University
             </span>
             <div className="text-primary-600 flex items-center text-sm font-medium">
               <span>Chi tiết</span>

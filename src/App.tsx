@@ -1,4 +1,3 @@
-
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -21,6 +20,7 @@ import TestDetail from './pages/TestDetail';
 import TestHistory from './pages/TestHistory';
 import TestResultDetail from './pages/TestResultDetail';
 import Test from './pages/Test';
+import MajorDetail from './pages/MajorDetail';
 
 function App() {
   return (
@@ -79,6 +79,9 @@ function App() {
           
           {/* 404 route */}
           <Route path="*" element={<NotFound />} />
+
+          {/* New route for MajorDetail */}
+          <Route path="/majors/:id" element={<MajorDetail />} />
         </Routes>
       </AuthProvider>
     </Router>
