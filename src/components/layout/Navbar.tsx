@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../ui/Button';
 import Container from '../ui/Container';
 import { useAuth } from '../../context/AuthContext';
+import NotificationBell from '../ui/NotificationBell';
 
 const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -90,57 +91,62 @@ const Navbar: React.FC = () => {
           {/* Auth Buttons or User Profile */}
           <div className="hidden md:flex items-center space-x-4">
             {isAuthenticated ? (
-              <div className="relative">
-                <button
-                  onClick={toggleDropdown}
-                  className="flex items-center space-x-2 text-gray-700 hover:text-primary-600"
-                >
-                  <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-primary-200">
-                    {currentUser?.profilePicture ? (
-                      <img
-                        src={currentUser.profilePicture}
-                        alt={currentUser.fullName}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-primary-100 flex items-center justify-center text-primary-700">
-                        {currentUser?.fullName.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                  </div>
-                  <span className="font-medium text-sm">{currentUser?.fullName}</span>
-                  <ChevronDown size={16} />
-                </button>
+              <>
+                <div className="flex items-center px-3 py-2">
+                  <NotificationBell />
+                </div>
+                <div className="relative">
+                  <button
+                    onClick={toggleDropdown}
+                    className="flex items-center space-x-2 text-gray-700 hover:text-primary-600"
+                  >
+                    <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-primary-200">
+                      {currentUser?.profilePicture ? (
+                        <img
+                          src={currentUser.profilePicture}
+                          alt={currentUser.fullName}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-primary-100 flex items-center justify-center text-primary-700">
+                          {currentUser?.fullName.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    <span className="font-medium text-sm">{currentUser?.fullName}</span>
+                    <ChevronDown size={16} />
+                  </button>
 
-                <AnimatePresence>
-                  {dropdownOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 10 }}
-                      transition={{ duration: 0.2 }}
-                      className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 py-1"
-                    >
-                      {profileLinks.map((link) => (
-                        <Link
-                          key={link.path}
-                          to={link.path}
-                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        >
-                          <span className="mr-2">{link.icon}</span>
-                          {link.name}
-                        </Link>
-                      ))}                      <button
-                        onClick={() => logout()}
-                        className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  <AnimatePresence>
+                    {dropdownOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 py-1"
                       >
-                        <LogIn size={16} className="mr-2" />
-                        Đăng xuất
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+                        {profileLinks.map((link) => (
+                          <Link
+                            key={link.path}
+                            to={link.path}
+                            className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          >
+                            <span className="mr-2">{link.icon}</span>
+                            {link.name}
+                          </Link>
+                        ))}                      <button
+                          onClick={() => logout()}
+                          className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          <LogIn size={16} className="mr-2" />
+                          Đăng xuất
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </>
             ) : (
               <>
                 <Link to="/login">
@@ -195,6 +201,9 @@ const Navbar: React.FC = () => {
 
                 {isAuthenticated ? (
                   <>
+                    <div className="flex items-center px-3 py-2">
+                      <NotificationBell />
+                    </div>
                     {profileLinks.map((link) => (
                       <Link
                         key={link.path}

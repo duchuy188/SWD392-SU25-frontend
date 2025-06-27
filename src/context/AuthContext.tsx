@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { userServices } from '../services/userServices';
 import { profileServices } from '../services/profleServices';
 import { Profile } from '../types';
+import { notificationServices } from '../services/notificationService';
+import { firebaseApp } from '../config/firebase';
 
 
 interface AuthContextType {
@@ -14,6 +16,8 @@ interface AuthContextType {
   googleLogin: (idToken: string) => Promise<boolean>;
   isLoading: boolean;
   updateUserProfile: (updatedUserData: Partial<Profile>) => void;
+  registerNotificationToken: () => Promise<void>;
+  unregisterNotificationToken: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -42,6 +46,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           localStorage.setItem('edubot_accessToken', newAccessToken);
           localStorage.setItem('edubot_refreshToken', newRefreshToken);
+          
+          // Kiểm tra và đăng ký lại token thông báo khi refresh token
+          await registerNotificationToken();
           
           setupTokenRefresh();
         } catch (error) {
@@ -110,8 +117,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               localStorage.setItem('edubot_user', JSON.stringify(fullProfileData));
             }
           } catch (profileError) {
-            // Handle silently
+           
           }
+          
+     
+          await registerNotificationToken();
+          // Comment dòng dưới đây lại
+          // await setupNotificationListener();
         } catch (error) {
           await logout();
         }
@@ -160,6 +172,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Handle silently
         }
         
+        await registerNotificationToken();
+        
         return true;
       }
       return false;
@@ -197,6 +211,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Handle silently
         }
         
+        await registerNotificationToken();
+        
         return true;
       }
       return false;
@@ -220,6 +236,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
+    await unregisterNotificationToken();
+    
     try {
       await userServices.logout();
     } catch (error) {
@@ -251,6 +269,74 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('edubot_user', JSON.stringify(updatedUser));
   };
 
+
+  const registerNotificationToken = async () => {
+    try {
+      if ('Notification' in window) {
+        const permission = await Notification.requestPermission();
+        
+        if (permission === 'granted') {
+          const { getMessaging, getToken } = await import('firebase/messaging');
+          const messaging = getMessaging(firebaseApp);
+          
+       
+          if ('serviceWorker' in navigator) {
+            try {
+              const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+              console.log('Service worker registered successfully', registration);
+              
+            
+              const token = await getToken(messaging, {
+                vapidKey: "BF91yoYltlu6lmF3rvnyjIl3QoVs57qYWIcO3J-y3fgbQC86SHixemQ5yvEUAatmRTTSs9n0WR1RaHIPc-0CWBg",
+                serviceWorkerRegistration: registration
+              });
+              
+              if (token) {
+                await notificationServices.registerToken(token, 'web');
+                localStorage.setItem('edubot_fcmToken', token);
+                console.log('Token registered successfully:', token);
+              }
+            } catch (swError) {
+              console.error('Error registering service worker:', swError);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error registering notification token:', error);
+    }
+  };
+
+
+  const unregisterNotificationToken = async () => {
+    try {
+      const token = localStorage.getItem('edubot_fcmToken');
+      if (token) {
+        await notificationServices.unregisterToken(token);
+        localStorage.removeItem('edubot_fcmToken');
+      }
+    } catch (error) {
+      console.error('Lỗi khi hủy đăng ký token thông báo:', error);
+    }
+  };
+
+  
+  const setupNotificationListener = async () => {
+    // Để trống hoặc chỉ log không hiển thị thông báo
+    try {
+      const { getMessaging, onMessage } = await import('firebase/messaging');
+      const messaging = getMessaging(firebaseApp);
+      
+      onMessage(messaging, (payload) => {
+        console.log('Thông báo mới nhận được trong AuthContext:', payload);
+        // Xóa phần hiển thị thông báo ở đây
+        // KHÔNG hiển thị thông báo ở đây nữa
+      });
+    } catch (error) {
+      console.error('Lỗi khi thiết lập lắng nghe thông báo:', error);
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       currentUser, 
@@ -261,7 +347,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       hasRole,
       googleLogin,
       isLoading,
-      updateUserProfile
+      updateUserProfile,
+      registerNotificationToken,
+      unregisterNotificationToken
     }}>
       {children}
     </AuthContext.Provider>
