@@ -1,10 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Plus, Image } from 'lucide-react';
-import Container from '../components/ui/Container';
-import MainLayout from '../components/layout/MainLayout';
+import Navbar from '../components/layout/Navbar';
 import ChatBubble from '../components/chat/ChatBubble';
 import Button from '../components/ui/Button';
-import { ChatMessage, QuickReply } from '../types';
+import { ChatMessage } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { chatServices } from '../services/chatService';
 import { useLocation } from 'react-router-dom';
@@ -15,17 +14,20 @@ const Chatbot: React.FC = () => {
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [highlightLatestBot, setHighlightLatestBot] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const latestBotMessageRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [hasChatSession, setHasChatSession] = useState<boolean>(false);
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const chatIdFromURL = queryParams.get('chatId');
   
+  /*
   const [currentChatId, setCurrentChatId] = useState<string | null>(
     chatIdFromURL || localStorage.getItem('edubot_current_chat_id')
   );
+  */
   
   useEffect(() => {
     if (chatIdFromURL) {
@@ -81,7 +83,7 @@ const Chatbot: React.FC = () => {
             setMessages(formattedMessages);
             
             // Cập nhật currentChatId
-            setCurrentChatId(response.data.conversation._id);
+            // setCurrentChatId(response.data.conversation._id);
           } else {
             console.log("No interactions found in existing chat, creating new chat");
             createNewChatSession();
@@ -123,8 +125,38 @@ const Chatbot: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Focus vào câu trả lời mới nhất của bot
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.role === 'bot' && latestBotMessageRef.current) {
+        // Bật highlight cho tin nhắn mới
+        setHighlightLatestBot(true);
+        
+        // Delay một chút để đảm bảo animation và scroll hoàn tất
+        setTimeout(() => {
+          latestBotMessageRef.current?.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          });
+          latestBotMessageRef.current?.focus({ preventScroll: true });
+          
+          // Tắt highlight sau 3 giây
+          setTimeout(() => {
+            setHighlightLatestBot(false);
+          }, 3000);
+        }, 500);
+      }
+    }
+  }, [messages]);
+
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesEndRef.current) {
+      const chatContainer = messagesEndRef.current.parentElement;
+      if (chatContainer) {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+    }
   };
 
   const checkExistingChatOrCreateWelcome = async () => {
@@ -258,7 +290,7 @@ const Chatbot: React.FC = () => {
       // Kiểm tra xem response có chứa chat ID mới không (trong trường hợp tạo chat mới tự động)
       if (response.data && response.data.conversation && response.data.conversation._id) {
         const chatId = response.data.conversation._id;
-        setCurrentChatId(chatId);
+        // setCurrentChatId(chatId);
         localStorage.setItem('edubot_current_chat_id', chatId);
       }
     } catch (error) {
@@ -277,6 +309,7 @@ const Chatbot: React.FC = () => {
     }
   };
 
+  /*
   const handleQuickReply = async (reply: QuickReply) => {
     // Add user message from quick reply to UI immediately
     const userMessage: ChatMessage = {
@@ -321,12 +354,13 @@ const Chatbot: React.FC = () => {
       setMessages(prev => [...prev, errorMessage]);
     }
   };
+  */
 
   const startNewChat = async () => {
     try {
       // Xóa ID chat cũ
       localStorage.removeItem('edubot_current_chat_id');
-      setCurrentChatId(null);
+      // setCurrentChatId(null);
       
       // Tạo chat mới
       await createNewChatSession();
@@ -412,7 +446,7 @@ const Chatbot: React.FC = () => {
       
       if (newChatId) {
         console.log("New chat ID extracted:", newChatId);
-        setCurrentChatId(newChatId);
+        // setCurrentChatId(newChatId);
         localStorage.setItem('edubot_current_chat_id', newChatId);
       }
       
@@ -438,23 +472,37 @@ const Chatbot: React.FC = () => {
   };
 
   return (
-    <MainLayout>
-      <div className="min-h-screen bg-gray-50 pt-16 pb-8">
-        <Container>
-          <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-soft overflow-hidden flex flex-col h-[calc(100vh-120px)]">
-            {/* Header */}
-            <div className="bg-primary-600 text-white p-4 flex justify-between items-center">
-              <h1 className="text-xl font-semibold">EduBot Tư vấn</h1>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={startNewChat}
-                className="text-white hover:bg-primary-700"
-                icon={<Plus size={18} />}
-              >
-                Trò chuyện mới
-              </Button>
+    <div className="flex flex-col h-screen">
+      <Navbar />
+      <div className="flex bg-gray-50 pt-16 h-screen">
+        {/* Fixed Sidebar */}
+        <div className="w-64 bg-white shadow-lg border-r border-gray-200 fixed h-full top-16 overflow-hidden flex flex-col">
+          {/* Logo/Header trong sidebar */}
+          <div className="bg-primary-600 text-white p-4 flex-shrink-0">
+            <h1 className="text-xl font-semibold">Chat với EduBot</h1>
+          </div>
+          
+          {/* Navigation buttons */}
+          <div className="p-4 space-y-3 flex-shrink-0">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={startNewChat}
+              className="w-full justify-start text-left hover:bg-gray-50 border border-gray-200"
+              icon={<Plus size={18} />}
+            >
+              Trò chuyện mới
+            </Button>
+            <div className="w-full p-3 bg-primary-50 border border-primary-200 rounded-lg">
+              <h2 className="text-primary-700 font-semibold text-sm">EduBot Tư vấn</h2>
+              <p className="text-primary-600 text-xs mt-1">Trợ lý AI hỗ trợ học tập</p>
             </div>
+          </div>
+        </div>
+        
+        {/* Main Content với margin-left để tránh sidebar */}
+        <div className="flex-1 p-4 ml-64">
+          <div className="h-full bg-white rounded-xl shadow-soft overflow-hidden flex flex-col">
             
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
@@ -467,16 +515,25 @@ const Chatbot: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {messages.map((message) => (
-                    <ChatBubble key={message.id} message={message} />
-                  ))}
+                  {messages.map((message, index) => {
+                    const isLastBotMessage = message.role === 'bot' && index === messages.length - 1;
+                    return (
+                      <ChatBubble 
+                        key={message.id} 
+                        message={message} 
+                        isLatestBot={isLastBotMessage}
+                        ref={isLastBotMessage ? latestBotMessageRef : undefined}
+                        highlight={highlightLatestBot && isLastBotMessage} // Thêm prop highlight
+                      />
+                    );
+                  })}
                   {isTyping && (
                     <div className="flex justify-start mb-4">
                       <div className="bg-white text-gray-500 rounded-2xl px-4 py-3 border border-gray-200">
                         <div className="flex space-x-1">
-                          <div className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                          <div className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                          <div className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                          <div className="w-2 h-2 rounded-full bg-gray-300 typing-dot-1"></div>
+                          <div className="w-2 h-2 rounded-full bg-gray-300 typing-dot-2"></div>
+                          <div className="w-2 h-2 rounded-full bg-gray-300 typing-dot-3"></div>
                         </div>
                       </div>
                     </div>
@@ -496,6 +553,7 @@ const Chatbot: React.FC = () => {
                     onChange={handleFileUpload}
                     accept="image/*"
                     className="hidden"
+                    aria-label="Upload image"
                   />
                   <Button
                     type="button"
@@ -546,9 +604,9 @@ const Chatbot: React.FC = () => {
               )}
             </div>
           </div>
-        </Container>
+        </div>
       </div>
-    </MainLayout>
+    </div>
   );
 };
 
