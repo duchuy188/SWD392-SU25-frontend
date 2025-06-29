@@ -3,13 +3,16 @@ import axiosInstance from './axiosInstance';
 
 export const chatServices = {
  
-  sendMessage: async (message: string | File) => {
+  sendMessage: async (message: string | File, text?: string) => {
     const formData = new FormData();
     
     if (typeof message === 'string') {
       formData.append('message', message);
     } else {
       formData.append('image', message);
+      if (text) {
+        formData.append('message', text);
+      }
     }
     
     return await axiosInstance.post('/chat', formData, {
