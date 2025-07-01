@@ -251,28 +251,103 @@ const Chatbot: React.FC = () => {
     }
   };
 
+  // Thêm state mới để lưu trữ file đã chọn
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFilePreview, setSelectedFilePreview] = useState<string | null>(null);
+
+  // Sửa hàm handleFileSelect để đảm bảo lưu đúng định dạng base64
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Kiểm tra kích thước file trước khi xử lý
+    if (file.size > 2 * 1024 * 1024) { // Giảm xuống 2MB để đảm bảo
+      alert("Hình ảnh quá lớn, vui lòng chọn hình ảnh nhỏ hơn 2MB");
+      return;
+    }
+    
+    // Đọc file thành base64
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target && event.target.result) {
+        const base64String = event.target.result.toString();
+        
+        // Kiểm tra xem có phải là base64 hợp lệ không
+        if (!base64String.startsWith('data:image/')) {
+          console.error("Định dạng base64 không hợp lệ");
+          return;
+        }
+        
+        setSelectedFile(file);
+        setSelectedFilePreview(base64String);
+        
+        // Lưu vào localStorage
+        try {
+          console.log("Đang lưu hình ảnh vào localStorage...");
+          localStorage.setItem(`edubot_image_${file.name}`, base64String);
+        } catch (error) {
+          console.error("Lỗi khi lưu hình ảnh vào localStorage:", error);
+          alert("Không thể lưu hình ảnh. Vui lòng thử lại với hình ảnh nhỏ hơn.");
+        }
+      }
+    };
+    reader.onerror = (error) => {
+      console.error("Lỗi khi đọc file:", error);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (inputValue.trim() === '') return;
-
+    
+    // Kiểm tra nếu không có nội dung tin nhắn và không có file được chọn
+    if (inputValue.trim() === '' && !selectedFile) return;
+    
+    let userMessageContent = inputValue;
+    let fileToSend = selectedFile;
+    
+    // Nếu có file được chọn, thêm thông tin về file vào nội dung tin nhắn
+    if (selectedFile) {
+      // Nếu có cả tin nhắn và hình ảnh
+      if (inputValue.trim() !== '') {
+        userMessageContent = `${inputValue}\n\n[Đã gửi hình ảnh: ${selectedFile.name}]`;
+      } else {
+        userMessageContent = `[Đã gửi hình ảnh: ${selectedFile.name}]`;
+      }
+    }
+    
     // Add user message to UI immediately
     const userMessage: ChatMessage = {
       id: `user_${Date.now()}`,
       role: 'user',
-      content: inputValue,
+      content: userMessageContent,
       timestamp: new Date().toISOString()
     };
     setMessages(prev => [...prev, userMessage]);
     
-    const currentInput = inputValue;
+    // Reset input và file đã chọn
     setInputValue('');
-
+    const tempInputValue = inputValue.trim(); // Lưu lại giá trị input trước khi reset
+    setSelectedFile(null);
+    setSelectedFilePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    
     // Show typing indicator
     setIsTyping(true);
     
     try {
-      // Send message to API
-      const response = await chatServices.sendMessage(currentInput);
+      let response;
+      
+      // Gửi file hoặc tin nhắn văn bản
+      if (fileToSend) {
+        // Gửi cả file và text nếu có
+        response = await chatServices.sendMessage(fileToSend, tempInputValue);
+      } else {
+        response = await chatServices.sendMessage(userMessageContent);
+      }
       
       // Hide typing indicator
       setIsTyping(false);
@@ -287,10 +362,9 @@ const Chatbot: React.FC = () => {
       
       setMessages(prev => [...prev, botMessage]);
       
-      // Kiểm tra xem response có chứa chat ID mới không (trong trường hợp tạo chat mới tự động)
+      // Kiểm tra xem response có chứa chat ID mới không
       if (response.data && response.data.conversation && response.data.conversation._id) {
         const chatId = response.data.conversation._id;
-        // setCurrentChatId(chatId);
         localStorage.setItem('edubot_current_chat_id', chatId);
       }
     } catch (error) {
@@ -378,6 +452,10 @@ const Chatbot: React.FC = () => {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
+    // Tạo URL cho file preview và lưu vào localStorage
+    const imagePreviewUrl = URL.createObjectURL(file);
+    localStorage.setItem(`edubot_image_${file.name}`, imagePreviewUrl);
     
     // Add user message with image info
     const userMessage: ChatMessage = {
@@ -471,6 +549,28 @@ const Chatbot: React.FC = () => {
     }
   };
 
+  // Thêm hàm này vào component Chatbot
+  const checkLocalStorageAvailability = () => {
+    try {
+      const testKey = "__test__";
+      localStorage.setItem(testKey, testKey);
+      localStorage.removeItem(testKey);
+      return true;
+    } catch (e) {
+      console.error("localStorage không khả dụng:", e);
+      return false;
+    }
+  };
+
+  // Sử dụng trong useEffect khi component mount
+  useEffect(() => {
+    const isLocalStorageAvailable = checkLocalStorageAvailability();
+    if (!isLocalStorageAvailable) {
+      console.error("Cảnh báo: localStorage không khả dụng. Tính năng lưu hình ảnh sẽ không hoạt động.");
+      // Có thể hiển thị thông báo cho người dùng
+    }
+  }, []);
+
   return (
     <div className="flex flex-col h-screen">
       <Navbar />
@@ -546,43 +646,72 @@ const Chatbot: React.FC = () => {
             {/* Input */}
             <div className="p-5 border-t border-gray-200 bg-white">
               {isAuthenticated ? (
-                <form onSubmit={handleSubmit} className="flex space-x-3">
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileUpload}
-                    accept="image/*"
-                    className="hidden"
-                    aria-label="Upload image"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => fileInputRef.current?.click()}
-                    icon={<Image size={20} />}
-                    className="rounded-full"
-                    title="Gửi hình ảnh"
-                  >
-                    <span className="sr-only">Gửi hình ảnh</span>
-                  </Button>
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    placeholder="Nhập câu hỏi của bạn..."
-                    className="flex-1 border border-gray-300 rounded-full px-5 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                  <Button 
-                    type="submit" 
-                    variant="primary"
-                    icon={<Send size={20} />}
-                    className="rounded-full px-6 py-3"
-                    disabled={isTyping}
-                  >
-                    Gửi
-                  </Button>
-                </form>
+                <>
+                  {selectedFilePreview && (
+                    <div className="mb-3 relative">
+                      <div className="relative inline-block">
+                        <img 
+                          src={selectedFilePreview} 
+                          alt="Preview" 
+                          className="h-20 rounded-lg object-cover" 
+                        />
+                        <button
+                          type="button"
+                          className="absolute top-1 right-1 bg-gray-800 bg-opacity-50 rounded-full p-1 text-white hover:bg-opacity-70"
+                          onClick={() => {
+                            setSelectedFile(null);
+                            setSelectedFilePreview(null);
+                            if (fileInputRef.current) {
+                              fileInputRef.current.value = '';
+                            }
+                          }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <form onSubmit={handleSubmit} className="flex space-x-3">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileSelect}
+                      accept="image/*"
+                      className="hidden"
+                      aria-label="Upload image"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      icon={<Image size={20} />}
+                      className={`rounded-full ${selectedFile ? 'bg-primary-100' : ''}`}
+                      title="Chọn hình ảnh"
+                    >
+                      <span className="sr-only">Chọn hình ảnh</span>
+                    </Button>
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      placeholder={selectedFile ? "Nhập nội dung kèm theo hình ảnh (tùy chọn)..." : "Nhập câu hỏi của bạn..."}
+                      className="flex-1 border border-gray-300 rounded-full px-5 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                    <Button 
+                      type="submit" 
+                      variant="primary"
+                      icon={<Send size={20} />}
+                      className="rounded-full px-6 py-3"
+                      disabled={isTyping || (inputValue.trim() === '' && !selectedFile)}
+                    >
+                      Gửi
+                    </Button>
+                  </form>
+                </>
               ) : (
                 <div className="bg-gray-50 rounded-lg p-4 text-center">
                   <p className="text-gray-600 mb-3">
