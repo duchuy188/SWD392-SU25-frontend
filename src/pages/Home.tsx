@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { MessageSquare, BookOpen, Users, ChevronRight, Award, Briefcase, Sparkles } from 'lucide-react';
@@ -6,9 +6,41 @@ import Button from '../components/ui/Button';
 import Card, { CardBody } from '../components/ui/Card';
 import Container from '../components/ui/Container';
 import MainLayout from '../components/layout/MainLayout';
-import { mockMajors } from '../data/mockData';
+import { majorServices } from '../services/majorService';
+import { Major } from '../types';
 
 const Home: React.FC = () => {
+  const [popularMajors, setPopularMajors] = useState<Major[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPopularMajors = async () => {
+      try {
+        const response = await majorServices.getAllMajors(1, '', '');
+        const data = response.data;
+        
+        const formattedMajors = data.majors.map((apiMajor: any) => ({
+          id: apiMajor.id,
+          name: apiMajor.name,
+          description: apiMajor.description || '',
+          image: apiMajor.imageUrl || '',
+          universities: [],
+          careers: apiMajor.careerProspects?.map((c: any) => c.title) || [],
+          subjects: apiMajor.subjectCombinations || [],
+          category: apiMajor.department || ''
+        }));
+        
+        setPopularMajors(formattedMajors.slice(0, 3));
+      } catch (error) {
+        console.error('Error fetching popular majors:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPopularMajors();
+  }, []);
+
   const features = [
     {
       icon: <BookOpen className="w-6 h-6 text-primary-600" />,
@@ -134,47 +166,53 @@ const Home: React.FC = () => {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {mockMajors.slice(0, 3).map((major, index) => (
-              <motion.div
-                key={major.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                viewport={{ once: true }}
-              >
-                <Link to={`/majors/${major.id}`}>
-                  <Card hoverable className="h-full">
-                    <div className="aspect-video w-full overflow-hidden">
-                      <img 
-                        src={major.image} 
-                        alt={major.name}
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                    </div>
-                    <CardBody>
-                      <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                        {major.name}
-                      </h3>
-                      <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                        {major.description}
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {major.subjects.map((subject, index) => (
-                          <span 
-                            key={index}
-                            className="inline-block bg-primary-50 text-primary-700 text-xs px-2 py-1 rounded-full"
-                          >
-                            {subject}
-                          </span>
-                        ))}
+          {isLoading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {popularMajors.map((major, index) => (
+                <motion.div
+                  key={major.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  viewport={{ once: true }}
+                >
+                  <Link to={`/majors/${major.id}`}>
+                    <Card hoverable className="h-full">
+                      <div className="aspect-video w-full overflow-hidden">
+                        <img 
+                          src={major.image} 
+                          alt={major.name}
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
                       </div>
-                    </CardBody>
-                  </Card>
-                </Link>
-              </motion.div>
-            ))}
-          </div>
+                      <CardBody>
+                        <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                          {major.name}
+                        </h3>
+                        <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                          {major.description}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {major.subjects.map((subject, index) => (
+                            <span 
+                              key={index}
+                              className="inline-block bg-primary-50 text-primary-700 text-xs px-2 py-1 rounded-full"
+                            >
+                              {subject}
+                            </span>
+                          ))}
+                        </div>
+                      </CardBody>
+                    </Card>
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
+          )}
         </Container>
       </section>
 
@@ -188,16 +226,7 @@ const Home: React.FC = () => {
             <p className="text-lg text-gray-700 mb-8">
               EduBot luôn sẵn sàng trò chuyện, giải đáp mọi thắc mắc và giúp bạn tìm ra con đường phù hợp nhất.
             </p>
-            <div className="flex flex-col sm:flex-row justify-center gap-4">
-              <Link to="/register">
-                <Button 
-                  size="lg" 
-                  variant="primary"
-                  className="w-full sm:w-auto bg-white text-primary-600 hover:bg-gray-100 hover:text-primary-700"
-                >
-                  Đăng ký miễn phí
-                </Button>
-              </Link>
+            <div className="flex justify-center">
               <Link to="/chatbot">
                 <Button 
                   variant="outline" 
