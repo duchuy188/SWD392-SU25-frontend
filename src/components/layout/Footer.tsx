@@ -61,11 +61,11 @@ const Footer: React.FC = () => {
                   Ngành học
                 </Link>
               </li>
-              <li>
+              {/* <li>
                 <Link to="/career" className="text-gray-400 hover:text-white transition-colors">
                   Hướng nghiệp
                 </Link>
-              </li>
+              </li> */}
               <li>
                 <Link to="/chatbot" className="text-gray-400 hover:text-white transition-colors">
                   Chatbot
