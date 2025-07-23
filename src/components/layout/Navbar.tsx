@@ -38,7 +38,7 @@ const Navbar: React.FC = () => {
   const navLinks = [
     { name: 'Trang chủ', path: '/' },
     { name: 'Ngành học', path: '/majors' },
-    { name: 'Hướng nghiệp', path: '/career' },
+    // { name: 'Hướng nghiệp', path: '/career' },
     { name: 'Chatbot', path: '/chatbot' },
     { name: 'Bài test', path: '/tests' },
   ];

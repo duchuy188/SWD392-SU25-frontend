@@ -1,4 +1,4 @@
-import { User, Major, ChatSession, Career, SystemStatus, SystemLog, QuickReply } from '../types';
+import { Major, ChatSession, Career, SystemStatus, SystemLog, QuickReply } from '../types';
 
 // export const mockUsers: User[] = [
 // //   {
