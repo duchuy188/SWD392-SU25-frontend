@@ -21,6 +21,7 @@ import TestHistory from './pages/TestHistory';
 import TestResultDetail from './pages/TestResultDetail';
 import Test from './pages/Test';
 import MajorDetail from './pages/MajorDetail';
+import ChangePassword from './pages/ChangePassword';
 
 function App() {
   return (
@@ -73,6 +74,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <TestResultDetail />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/change-password" 
+            element={
+              <ProtectedRoute>
+                <ChangePassword />
               </ProtectedRoute>
             } 
           />

@@ -8,6 +8,7 @@ import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
 import { profileServices } from '../services/profleServices';
+import ChangePassword from './ChangePassword';
 
 const Profile: React.FC = () => {
   const { currentUser, isAuthenticated, updateUserProfile } = useAuth();
@@ -25,7 +26,7 @@ const Profile: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>('');
   
-  const [isEditing, setIsEditing] = useState(false);
+  const [mode, setMode] = useState<'view' | 'edit' | 'changePassword'>('view');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
 
   // Redirect if not authenticated
@@ -91,7 +92,7 @@ const Profile: React.FC = () => {
       }
       
       setSaveStatus('success');
-      setIsEditing(false);
+      setMode('view'); // After successful save, go back to view mode
       
       // Clean up preview URL
       if (previewUrl) {
@@ -136,7 +137,7 @@ const Profile: React.FC = () => {
                           alt={currentUser.fullName}
                           className="w-full h-full object-cover"
                         />
-                        {isEditing && (
+                        {mode === 'edit' && (
                           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                             <Camera size={24} className="text-white" />
                           </div>
@@ -145,7 +146,7 @@ const Profile: React.FC = () => {
                     ) : (
                       <div className="w-full h-full bg-primary-100 flex items-center justify-center text-primary-700 text-4xl font-bold relative">
                         {currentUser.fullName.charAt(0).toUpperCase()}
-                        {isEditing && (
+                        {mode === 'edit' && (
                           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                             <Camera size={24} className="text-white" />
                           </div>
@@ -170,36 +171,22 @@ const Profile: React.FC = () => {
                     {currentUser.role === 'student' && 'Học sinh'}
                     {currentUser.role === 'admin' && 'Quản trị viên'}
                   </p>
-                  
-                  <div className="w-full space-y-3 mb-6">
-                    <div className="flex items-center text-gray-600">
-                      <Mail size={18} className="mr-2 text-gray-500" />
-                      <span>{currentUser.email}</span>
-                    </div>
-                    
-                    {currentUser.phone && (
-                      <div className="flex items-center text-gray-600">
-                        <Phone size={18} className="mr-2 text-gray-500" />
-                        <span>{currentUser.phone}</span>
-                      </div>
-                    )}
-                    
-                    {currentUser.address && (
-                      <div className="flex items-center text-gray-600">
-                        <MapPin size={18} className="mr-2 text-gray-500" />
-                        <span>{currentUser.address}</span>
-                      </div>
-                    )}
-                  </div>
-                  
                   <Button
-                    variant={isEditing ? 'outline' : 'primary'}
-                    onClick={() => setIsEditing(!isEditing)}
+                    variant={mode === 'edit' ? 'outline' : 'primary'}
+                    onClick={() => setMode(mode === 'edit' ? 'view' : 'edit')}
                     fullWidth
                   >
-                    {isEditing ? 'Hủy chỉnh sửa' : 'Chỉnh sửa thông tin'}
+                    {mode === 'edit' ? 'Hủy chỉnh sửa' : 'Chỉnh sửa thông tin'}
                   </Button>
-                  
+                  <div className="mt-4 w-full">
+                    <Button
+                      onClick={() => setMode('changePassword')}
+                      fullWidth
+                      className="w-full bg-red-500 hover:bg-red-600 text-white border-none"
+                    >
+                      Đổi mật khẩu
+                    </Button>
+                  </div>
                   <div className="mt-4 w-full">
                     <Button
                       variant="secondary"
@@ -209,35 +196,38 @@ const Profile: React.FC = () => {
                     >
                       Xem lịch sử kết quả test
                     </Button>
+                    
+                    
                   </div>
+
                 </CardBody>
               </Card>
             </div>
             
             {/* Profile Content */}
             <div className="md:col-span-2">
-              <Card>
-                <CardHeader>
-                  <h3 className="text-xl font-semibold text-gray-900">
-                    {isEditing ? 'Chỉnh sửa thông tin cá nhân' : 'Thông tin cá nhân'}
-                  </h3>
-                </CardHeader>
-                <CardBody>
-                  {saveStatus === 'success' && (
-                    <div className="mb-6 p-4 bg-success-50 text-success-700 rounded-lg flex items-start">
-                      <CheckCircle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
-                      <p>Cập nhật thông tin thành công!</p>
-                    </div>
-                  )}
-                  
-                  {saveStatus === 'error' && (
-                    <div className="mb-6 p-4 bg-error-50 text-error-700 rounded-lg flex items-start">
-                      <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
-                      <p>Đã xảy ra lỗi khi cập nhật. Vui lòng thử lại sau.</p>
-                    </div>
-                  )}
-                  
-                  {isEditing ? (
+              {mode === 'changePassword' ? (
+                <ChangePassword onCancel={() => setMode('view')} />
+              ) : mode === 'edit' ? (
+                <Card>
+                  <CardHeader>
+                    <h3 className="text-xl font-semibold text-gray-900">Chỉnh sửa thông tin cá nhân</h3>
+                  </CardHeader>
+                  <CardBody>
+                    {saveStatus === 'success' && (
+                      <div className="mb-6 p-4 bg-success-50 text-success-700 rounded-lg flex items-start">
+                        <CheckCircle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
+                        <p>Cập nhật thông tin thành công!</p>
+                      </div>
+                    )}
+                    
+                    {saveStatus === 'error' && (
+                      <div className="mb-6 p-4 bg-error-50 text-error-700 rounded-lg flex items-start">
+                        <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
+                        <p>Đã xảy ra lỗi khi cập nhật. Vui lòng thử lại sau.</p>
+                      </div>
+                    )}
+                    
                     <form onSubmit={handleSubmit} className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <Input
@@ -286,7 +276,7 @@ const Profile: React.FC = () => {
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={() => setIsEditing(false)}
+                          onClick={() => setMode('view')}
                         >
                           Hủy
                         </Button>
@@ -300,7 +290,14 @@ const Profile: React.FC = () => {
                         </Button>
                       </div>
                     </form>
-                  ) : (
+                  </CardBody>
+                </Card>
+              ) : (
+                <Card>
+                  <CardHeader>
+                    <h3 className="text-xl font-semibold text-gray-900">Thông tin cá nhân</h3>
+                  </CardHeader>
+                  <CardBody>
                     <div className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
@@ -328,9 +325,9 @@ const Profile: React.FC = () => {
                         <p className="text-gray-900">{currentUser.address || '—'}</p>
                       </div>
                     </div>
-                  )}
-                </CardBody>
-              </Card>
+                  </CardBody>
+                </Card>
+              )}
             </div>
           </div>
         </Container>

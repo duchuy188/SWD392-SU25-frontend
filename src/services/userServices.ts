@@ -20,9 +20,9 @@ export const userServices = {
     return axiosInstance.post('/auth/reset-password', { email, resetToken, newPassword });
   },
 
-  changePassword: (userId: string, oldPassword: string, newPassword: string) => {
-    return axiosInstance.put(`/api/users/${userId}/password`, {
-      oldPassword,
+  changePassword: (currentPassword: string, newPassword: string) => {
+    return axiosInstance.put('/auth/change-password', {
+      currentPassword,
       newPassword
     });
   },
@@ -43,6 +43,5 @@ export const userServices = {
 
   refreshToken: (refreshToken: string) => {
     return axiosInstance.post('/auth/refresh-token', { refreshToken });
-  }
-  
-};
+  },
+}
